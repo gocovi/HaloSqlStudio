@@ -1,73 +1,142 @@
-# Welcome to your Lovable project
+# Halo SQL Explorer
 
-## Project info
+A local-first SQL query tool for Halo PSA that connects via OAuth and allows you to explore your data with SQL queries.
 
-**URL**: https://lovable.dev/projects/ff322dd5-0531-4119-a04c-5f5f3b697f92
+## Features
 
-## How can I edit this code?
+-   🔐 **Secure OAuth Authentication** - Connect to your Halo instance securely
+-   🗄️ **Database Explorer** - Browse tables and columns with search functionality
+-   📝 **SQL Query Editor** - Write and execute SQL queries with syntax highlighting
+-   📊 **Results Grid** - View query results in a clean, sortable table format
+-   🔍 **Global Search** - Use Ctrl+F to quickly find tables and columns
+-   💾 **Local Storage** - Refresh tokens are stored locally for persistent sessions
+-   ⚙️ **Configurable** - Set your own authorization server, resource server, and tenant
 
-There are several ways of editing your application.
+## Setup Instructions
 
-**Use Lovable**
+### 1. Create OAuth Application in Halo
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/ff322dd5-0531-4119-a04c-5f5f3b697f92) and start prompting.
+1. Log into your Halo PSA instance
+2. Go to **Config > Integrations > Halo API**
+3. Note your **Authentication Server URL** (e.g., `https://gocovi.halopsa.com/auth`)
+4. Create a new OAuth application with:
+    - **Redirect URI**: `http://localhost:5173/auth/callback` (for development)
+    - **Scopes**: `all offline_access`
+    - **Grant Types**: Authorization Code
 
-Changes made via Lovable will be committed automatically to this repo.
+### 2. Configure the Application
 
-**Use your preferred IDE**
+1. Start the application
+2. Click **Configure** to open the settings dialog
+3. Enter your Halo configuration:
+    - **Auth Server**: Your authentication server URL (e.g., `https://gocovi.halopsa.com/auth`)
+    - **Resource Server**: Your base server URL (e.g., `https://gocovi.halopsa.com`)
+    - **Client ID**: The OAuth client ID from step 1
+    - **Redirect URI**: Automatically set to your current URL + `/auth/callback`
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### 3. Connect and Use
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+1. Click **Connect to Halo** to start the OAuth flow
+2. You'll be redirected to Halo to authorize the application
+3. After authorization, you'll be redirected back and can start exploring
 
-Follow these steps:
+## Development
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+```bash
+# Install dependencies
+npm install
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
+
+# Build for production
+npm run build
 ```
 
-**Edit a file directly in GitHub**
+## Architecture
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+-   **OAuth Flow**: Uses PKCE (Proof Key for Code Exchange) for secure authentication
+-   **Token Management**: Automatically handles access token refresh
+-   **API Integration**: Connects to Halo's Report API for SQL execution
+-   **Local Storage**: Securely stores refresh tokens in localStorage
 
-**Use GitHub Codespaces**
+## Security Features
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+-   PKCE implementation for OAuth 2.0 security
+-   Automatic token refresh with 5-minute buffer
+-   Secure storage of authentication tokens in localStorage
+-   Persistent sessions - tokens are automatically refreshed and reused
+-   No sensitive data logged or transmitted unnecessarily
 
-## What technologies are used for this project?
+## Usage
 
-This project is built with:
+### Browsing Tables
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+-   Tables are automatically loaded when you connect
+-   Click on a table to expand and see its columns
+-   Use the search bar to find specific tables or columns
+-   Press Ctrl+F to quickly focus the search
 
-## How can I deploy this project?
+### Running Queries
 
-Simply open [Lovable](https://lovable.dev/projects/ff322dd5-0531-4119-a04c-5f5f3b697f92) and click on Share -> Publish.
+-   Use the Console tab for ad-hoc queries
+-   Create new query tabs for complex queries
+-   Results are displayed in a sortable grid
+-   Execution time is shown for performance monitoring
 
-## Can I connect a custom domain to my Lovable project?
+### Example Queries
 
-Yes, you can!
+```sql
+-- Get recent tickets
+SELECT
+    t.faultid AS [Id],
+    aareadesc AS [Company],
+    USERS.uusername AS [User],
+    t.symptom AS [Subject],
+    rtdesc AS [Type],
+    t.category2 AS [ServiceCategory]
+FROM
+    faults t
+    JOIN tstatus ON tstatus = status
+    JOIN requesttype ON rtid = requesttypenew
+    JOIN AREA ON aarea = Areaint
+    JOIN USERS ON Uid = t.userid
+WHERE
+    fdeleted = 0
+    AND Aarea <> 1
+    AND aarea <> 12
+    AND (rtdesc = 'Incident' OR rtdesc = 'Service Request')
+    AND dateoccured >= DATEADD(MONTH, -2, GETDATE())
+    AND fhasbeenclosed = 1
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Troubleshooting
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+### Common Issues
+
+1. **"No access token available"**
+
+    - Check your OAuth configuration
+    - Ensure your client ID is correct
+    - Verify redirect URI matches exactly
+
+2. **"Authentication failed"**
+
+    - Check your authorization server URL
+    - Verify tenant ID is correct
+    - Ensure OAuth app is properly configured in Halo
+
+3. **"API request failed"**
+    - Check your resource server URL
+    - Verify your OAuth app has the correct scopes
+    - Check Halo API permissions
+
+### Getting Help
+
+-   Check the browser console for detailed error messages
+-   Verify your Halo OAuth application configuration
+-   Ensure all URLs are correct and accessible
+
+## License
+
+This project is open source and available under the MIT License.

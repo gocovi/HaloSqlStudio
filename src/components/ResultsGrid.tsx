@@ -1,90 +1,687 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-
-interface QueryResult {
-  columns: string[];
-  rows: any[][];
-  executionTime?: number;
-  rowCount?: number;
-}
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { SearchBox } from "@/components/ui/search-box";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Download, Copy, Check } from "lucide-react";
+import type { QueryResult } from "@/lib/halo-api";
+import {
+    exportToJSON,
+    exportToCSV,
+    copyRowToClipboard,
+} from "@/lib/export-utils";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 
 interface ResultsGridProps {
-  result: QueryResult | null;
-  loading?: boolean;
-  error?: string;
+    result: QueryResult | null;
+    loading?: boolean;
+    error?: string;
 }
 
 export function ResultsGrid({ result, loading, error }: ResultsGridProps) {
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-32 text-muted-foreground">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-        <span className="ml-2">Executing query...</span>
-      </div>
+    const [columnWidths, setColumnWidths] = useState<{ [key: string]: number }>(
+        {}
     );
-  }
+    const [isResizing, setIsResizing] = useState(false);
+    const [resizeStartX, setResizeStartX] = useState(0);
+    const [resizeColumn, setResizeColumn] = useState<string | null>(null);
+    const [copiedRowIndex, setCopiedRowIndex] = useState<number | null>(null);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [searchResults, setSearchResults] = useState<
+        Array<{ rowIndex: number; colIndex: number; value: string }>
+    >([]);
+    const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
+    const [isSearching, setIsSearching] = useState(false);
+    const [currentView, setCurrentView] = useState<"table" | "json">("table");
+    const tableRef = useRef<HTMLDivElement>(null);
 
-  if (error) {
-    return (
-      <div className="p-4 border border-destructive bg-destructive/10 rounded text-destructive text-sm">
-        <strong>Error:</strong> {error}
-      </div>
+    // Direct search function - called only when user presses Enter
+    const performSearch = useCallback(
+        (term: string) => {
+            if (!term.trim()) {
+                setSearchResults([]);
+                setCurrentSearchIndex(0);
+                return;
+            }
+
+            const searchLower = term.toLowerCase();
+            const results: Array<{
+                rowIndex: number;
+                colIndex: number;
+                value: string;
+            }> = [];
+
+            // Search through rows and columns directly
+            result?.rows?.forEach((row, rowIndex) => {
+                result?.columns?.forEach((col, colIndex) => {
+                    const value = String(row[col.name] || "");
+                    if (value.toLowerCase().includes(searchLower)) {
+                        results.push({
+                            rowIndex,
+                            colIndex,
+                            value: String(row[col.name] || ""),
+                        });
+                    }
+                });
+            });
+
+            setSearchResults(results);
+            setCurrentSearchIndex(0);
+        },
+        [result?.rows, result?.columns]
     );
-  }
 
-  if (!result) {
-    return (
-      <div className="flex items-center justify-center h-32 text-muted-foreground">
-        No query executed
-      </div>
+    // Initialize default column widths
+    const initializeColumnWidths = useCallback(() => {
+        if (!result?.columns) return;
+
+        const defaultWidths: { [key: string]: number } = {};
+        result.columns.forEach((column) => {
+            // Set sensible default widths based on data type and content
+            let defaultWidth = 150; // Base width
+
+            // Adjust based on data type
+            if (
+                column.data_type.includes("varchar") ||
+                column.data_type.includes("nvarchar")
+            ) {
+                defaultWidth = 200;
+            } else if (
+                column.data_type.includes("text") ||
+                column.data_type.includes("ntext")
+            ) {
+                defaultWidth = 300;
+            } else if (
+                column.data_type.includes("date") ||
+                column.data_type.includes("time")
+            ) {
+                defaultWidth = 120;
+            } else if (
+                column.data_type.includes("int") ||
+                column.data_type.includes("decimal")
+            ) {
+                defaultWidth = 100;
+            }
+
+            // Adjust based on column name length
+            defaultWidth = Math.max(defaultWidth, column.name.length * 8 + 20);
+
+            defaultWidths[column.name] = defaultWidth;
+        });
+
+        setColumnWidths(defaultWidths);
+    }, [result?.columns]);
+
+    // Initialize widths when result changes
+    useEffect(() => {
+        initializeColumnWidths();
+    }, [initializeColumnWidths]);
+
+    // Only search when user explicitly triggers it
+    useEffect(() => {
+        if (!searchTerm.trim()) {
+            setSearchResults([]);
+            setCurrentSearchIndex(0);
+        }
+    }, [searchTerm]);
+
+    const goToNextResult = useCallback(() => {
+        if (searchResults.length === 0) return;
+        setCurrentSearchIndex((prev) => (prev + 1) % searchResults.length);
+    }, [searchResults.length]);
+
+    const goToPrevResult = useCallback(() => {
+        if (searchResults.length === 0) return;
+        setCurrentSearchIndex(
+            (prev) => (prev - 1 + searchResults.length) % searchResults.length
+        );
+    }, [searchResults.length]);
+
+    // Keyboard navigation for search results
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (!searchTerm.trim() || searchResults.length === 0) return;
+
+            if (e.key === "Enter" && e.shiftKey) {
+                e.preventDefault();
+                goToPrevResult();
+            } else if (e.key === "Enter") {
+                e.preventDefault();
+                goToNextResult();
+            }
+        };
+
+        document.addEventListener("keydown", handleKeyDown);
+        return () => document.removeEventListener("keydown", handleKeyDown);
+    }, [searchTerm, searchResults.length, goToNextResult, goToPrevResult]);
+
+    const clearSearch = useCallback(() => {
+        setSearchTerm("");
+        setSearchResults([]);
+        setCurrentSearchIndex(0);
+    }, []);
+
+    const handleResizeStart = useCallback(
+        (e: React.MouseEvent, columnName: string) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsResizing(true);
+            setResizeColumn(columnName);
+            setResizeStartX(e.clientX);
+        },
+        []
     );
-  }
 
-  return (
-    <div className="flex flex-col h-full">
-      {/* Results Header */}
-      <div className="flex items-center justify-between p-2 border-b border-border bg-card">
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="text-xs">
-            {result.rowCount || result.rows.length} rows
-          </Badge>
-          {result.executionTime && (
-            <Badge variant="outline" className="text-xs">
-              {result.executionTime}ms
-            </Badge>
-          )}
-        </div>
-      </div>
+    const handleResizeMove = useCallback(
+        (e: MouseEvent) => {
+            if (!isResizing || !resizeColumn) return;
 
-      {/* Results Table */}
-      <div className="flex-1 overflow-auto">
-        <Table>
-          <TableHeader className="sticky top-0 bg-card">
-            <TableRow>
-              {result.columns.map((column, index) => (
-                <TableHead key={index} className="text-xs font-medium border-r border-border last:border-r-0">
-                  {column}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {result.rows.map((row, rowIndex) => (
-              <TableRow key={rowIndex} className="hover:bg-accent/50">
-                {row.map((cell, cellIndex) => (
-                  <TableCell key={cellIndex} className="text-xs border-r border-border last:border-r-0 font-mono">
-                    {cell === null ? (
-                      <span className="text-muted-foreground italic">NULL</span>
-                    ) : (
-                      String(cell)
+            const deltaX = e.clientX - resizeStartX;
+            const newWidth = Math.max(
+                50,
+                (columnWidths[resizeColumn] || 150) + deltaX
+            );
+
+            setColumnWidths((prev) => ({
+                ...prev,
+                [resizeColumn]: newWidth,
+            }));
+
+            setResizeStartX(e.clientX);
+        },
+        [isResizing, resizeColumn, resizeStartX, columnWidths]
+    );
+
+    const handleResizeEnd = useCallback(() => {
+        setIsResizing(false);
+        setResizeColumn(null);
+    }, []);
+
+    // Copy row to clipboard with feedback
+    const handleCopyRow = useCallback(
+        async (row: Record<string, string>, columns: { name: string }[]) => {
+            const success = await copyRowToClipboard(row, columns);
+            if (success) {
+                // Show success feedback
+                const rowIndex = result?.rows.indexOf(row) || 0;
+                setCopiedRowIndex(rowIndex);
+                setTimeout(() => setCopiedRowIndex(null), 2000);
+            }
+        },
+        [result?.rows]
+    );
+
+    // Export functions
+    const handleExportJSON = useCallback(() => {
+        if (result) exportToJSON(result);
+    }, [result]);
+
+    const handleExportCSV = useCallback(() => {
+        if (result) exportToCSV(result);
+    }, [result]);
+
+    // Add/remove event listeners
+    useEffect(() => {
+        if (isResizing) {
+            document.addEventListener("mousemove", handleResizeMove);
+            document.addEventListener("mouseup", handleResizeEnd);
+            return () => {
+                document.removeEventListener("mousemove", handleResizeMove);
+                document.removeEventListener("mouseup", handleResizeEnd);
+            };
+        }
+    }, [isResizing, handleResizeMove, handleResizeEnd]);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-32 text-muted-foreground">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                <span className="ml-2">Executing query...</span>
+            </div>
+        );
+    }
+
+    if (error || result?.hasError) {
+        const errorMessage =
+            error || result?.error || "An unknown error occurred";
+        return (
+            <div className="p-4 border border-destructive bg-destructive/10 rounded text-destructive text-sm">
+                <strong>SQL Error:</strong> {errorMessage}
+            </div>
+        );
+    }
+
+    if (!result) {
+        return (
+            <div className="flex items-center justify-center h-32 text-muted-foreground">
+                No query executed
+            </div>
+        );
+    }
+
+    return (
+        <div className="grid grid-rows-[auto_1fr] h-full gap-0">
+            {/* Results Header - Fixed height, no overlap */}
+            <div className="flex items-center justify-between p-2 border-b border-border bg-card">
+                <div className="flex items-center gap-4">
+                    {/* View Tabs */}
+                    <Tabs
+                        value={currentView}
+                        onValueChange={(value) =>
+                            setCurrentView(value as "table" | "json")
+                        }
+                    >
+                        <TabsList className="h-8">
+                            <TabsTrigger
+                                value="table"
+                                className="text-xs px-3 py-1"
+                            >
+                                Table
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="json"
+                                className="text-xs px-3 py-1"
+                            >
+                                JSON
+                            </TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+
+                    {/* Results Info */}
+                    <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">
+                            {searchResults.length > 0
+                                ? `${searchResults.length} of ${
+                                      result.rowCount || result.rows.length
+                                  } rows`
+                                : `${
+                                      result.rowCount || result.rows.length
+                                  } rows`}
+                        </Badge>
+                        {result.executionTime && (
+                            <Badge variant="outline" className="text-xs">
+                                {result.executionTime}ms
+                            </Badge>
+                        )}
+                    </div>
+                </div>
+
+                {/* Search Box */}
+                <div className="flex items-center gap-2">
+                    <SearchBox
+                        placeholder="Search results... (Enter to search, Enter/Shift+Enter to navigate, Esc to clear)"
+                        value={searchTerm}
+                        onChange={() => {}} // No-op - we don't want to update on every keystroke
+                        onClear={clearSearch}
+                        onSearch={(inputValue) => {
+                            if (inputValue.trim()) {
+                                setSearchTerm(inputValue);
+                                setIsSearching(true);
+                                performSearch(inputValue);
+                                setIsSearching(false);
+                            }
+                        }}
+                        onNavigateDown={goToNextResult}
+                        onNavigateUp={goToPrevResult}
+                        size="lg"
+                        className="w-96"
+                        inputClassName="text-xs"
+                        enableKeyboardShortcut={false}
+                    />
+                    {isSearching && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+                            <span>Searching...</span>
+                        </div>
                     )}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
-  );
+                    {searchTerm.trim() &&
+                        searchResults.length === 0 &&
+                        !isSearching && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <span>Press Enter to search</span>
+                            </div>
+                        )}
+                    {searchResults.length > 0 && !isSearching && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <span>
+                                {currentSearchIndex + 1} of{" "}
+                                {searchResults.length}
+                            </span>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={goToPrevResult}
+                                className="h-6 w-6 p-0"
+                                title="Previous result (Shift+Enter)"
+                            >
+                                ↑
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={goToNextResult}
+                                className="h-6 w-6 p-0"
+                                title="Next result (Enter)"
+                            >
+                                ↓
+                            </Button>
+                            <span className="text-xs text-muted-foreground ml-2">
+                                Enter/Shift+Enter to navigate
+                            </span>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExportJSON}
+                        className="h-7 px-2 text-xs"
+                        disabled={result?.hasError}
+                        title={
+                            result?.hasError
+                                ? "Cannot export results with errors"
+                                : "Export to JSON"
+                        }
+                    >
+                        <Download className="h-3 w-3 mr-1" />
+                        JSON
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExportCSV}
+                        className="h-7 px-2 text-xs"
+                        disabled={result?.hasError}
+                        title={
+                            result?.hasError
+                                ? "Cannot export results with errors"
+                                : "Export to CSV"
+                        }
+                    >
+                        <Download className="h-3 w-3 mr-1" />
+                        CSV
+                    </Button>
+                </div>
+            </div>
+
+            {/* Results Table - Takes remaining space, no overlap */}
+            <div
+                className="overflow-auto scrollbar-thin bg-background border border-border rounded-md relative"
+                ref={tableRef}
+                style={{ cursor: isResizing ? "col-resize" : "default" }}
+            >
+                {/* Table View */}
+                {currentView === "table" && (
+                    <div className="w-full min-w-max relative h-full">
+                        <Table className="w-full">
+                            <TableHeader className="sticky top-0 bg-card border-b border-border z-50 shadow-sm">
+                                <TableRow>
+                                    {result.columns.map((column, index) => (
+                                        <TableHead
+                                            key={index}
+                                            style={{
+                                                width:
+                                                    columnWidths[column.name] ||
+                                                    150,
+                                                minWidth: 50,
+                                                maxWidth: 500,
+                                            }}
+                                            className={cn(
+                                                "text-xs font-medium border-r border-border last:border-r-0 relative bg-card",
+                                                index === 0 &&
+                                                    "sticky left-0 bg-card z-40 shadow-sm border-r-2 border-r-primary/20"
+                                            )}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <span className="truncate">
+                                                    {column.name}
+                                                </span>
+                                                {index <
+                                                    result.columns.length -
+                                                        1 && (
+                                                    <div
+                                                        className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20"
+                                                        onMouseDown={(e) =>
+                                                            handleResizeStart(
+                                                                e,
+                                                                column.name
+                                                            )
+                                                        }
+                                                    />
+                                                )}
+                                            </div>
+                                        </TableHead>
+                                    ))}
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {(() => {
+                                    // Only filter rows when there are search results (after pressing Enter)
+                                    const displayRows =
+                                        searchResults.length > 0
+                                            ? result.rows.filter((row) =>
+                                                  result.columns.some((col) => {
+                                                      const value = String(
+                                                          row[col.name] || ""
+                                                      );
+                                                      return value
+                                                          .toLowerCase()
+                                                          .includes(
+                                                              searchTerm.toLowerCase()
+                                                          );
+                                                  })
+                                              )
+                                            : result.rows;
+
+                                    if (
+                                        searchResults.length > 0 &&
+                                        displayRows.length === 0
+                                    ) {
+                                        return (
+                                            <TableRow>
+                                                <TableCell
+                                                    colSpan={
+                                                        result.columns.length
+                                                    }
+                                                    className="text-center py-8 text-muted-foreground"
+                                                >
+                                                    No results found for "
+                                                    {searchTerm}"
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    }
+
+                                    return displayRows.map((row, rowIndex) => {
+                                        const originalRowIndex =
+                                            result.rows.indexOf(row);
+                                        return (
+                                            <TableRow
+                                                key={originalRowIndex}
+                                                className="hover:bg-accent/50 group relative"
+                                            >
+                                                {result.columns.map(
+                                                    (column, cellIndex) => {
+                                                        const cellValue =
+                                                            String(
+                                                                row[
+                                                                    column.name
+                                                                ] || ""
+                                                            );
+                                                        const isSearchMatch =
+                                                            searchResults.some(
+                                                                (
+                                                                    result,
+                                                                    index
+                                                                ) =>
+                                                                    result.rowIndex ===
+                                                                        originalRowIndex &&
+                                                                    result.colIndex ===
+                                                                        cellIndex &&
+                                                                    index ===
+                                                                        currentSearchIndex
+                                                            );
+
+                                                        const isCurrentResult =
+                                                            searchResults.some(
+                                                                (
+                                                                    result,
+                                                                    index
+                                                                ) =>
+                                                                    result.rowIndex ===
+                                                                        originalRowIndex &&
+                                                                    result.colIndex ===
+                                                                        cellIndex &&
+                                                                    index ===
+                                                                        currentSearchIndex
+                                                            );
+
+                                                        return (
+                                                            <TableCell
+                                                                key={cellIndex}
+                                                                style={{
+                                                                    width:
+                                                                        columnWidths[
+                                                                            column
+                                                                                .name
+                                                                        ] ||
+                                                                        150,
+                                                                    minWidth: 50,
+                                                                    maxWidth: 500,
+                                                                }}
+                                                                className={cn(
+                                                                    "text-xs border-r border-border last:border-r-0 font-mono whitespace-nowrap overflow-hidden",
+                                                                    // Only highlight when there are actual search results
+                                                                    searchResults.length >
+                                                                        0 &&
+                                                                        isSearchMatch &&
+                                                                        "bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100",
+                                                                    searchResults.length >
+                                                                        0 &&
+                                                                        isCurrentResult &&
+                                                                        "bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100 ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-background font-semibold",
+                                                                    cellIndex ===
+                                                                        0 &&
+                                                                        "sticky left-0 bg-background z-40 shadow-sm border-r-2 border-r-primary/20"
+                                                                )}
+                                                            >
+                                                                <div
+                                                                    className="truncate"
+                                                                    title={
+                                                                        cellValue
+                                                                    }
+                                                                >
+                                                                    {row[
+                                                                        column
+                                                                            .name
+                                                                    ] ===
+                                                                        null ||
+                                                                    row[
+                                                                        column
+                                                                            .name
+                                                                    ] ===
+                                                                        undefined ? (
+                                                                        <span className="text-muted-foreground italic">
+                                                                            NULL
+                                                                        </span>
+                                                                    ) : (
+                                                                        cellValue
+                                                                    )}
+                                                                </div>
+                                                            </TableCell>
+                                                        );
+                                                    }
+                                                )}
+                                            </TableRow>
+                                        );
+                                    });
+                                })()}
+                            </TableBody>
+                        </Table>
+
+                        {/* Copy buttons positioned absolutely over table rows */}
+                        {(() => {
+                            if (!result?.rows || !result?.columns) return null;
+
+                            // Only show copy buttons for filtered rows when search is active
+                            const displayRows =
+                                searchResults.length > 0
+                                    ? result.rows.filter((row) =>
+                                          result.columns.some((col) => {
+                                              const value = String(
+                                                  row[col.name] || ""
+                                              );
+                                              return value
+                                                  .toLowerCase()
+                                                  .includes(
+                                                      searchTerm.toLowerCase()
+                                                  );
+                                          })
+                                      )
+                                    : result.rows;
+
+                            return displayRows.map((row, rowIndex) => {
+                                const originalRowIndex =
+                                    result.rows.indexOf(row);
+                                return (
+                                    <div
+                                        key={`copy-${originalRowIndex}`}
+                                        className="absolute opacity-0 hover:opacity-100 transition-opacity pointer-events-none"
+                                        style={{
+                                            top: `${
+                                                (originalRowIndex + 1) * 32 + 40
+                                            }px`,
+                                            right: "8px",
+                                        }}
+                                    >
+                                        <div className="pointer-events-auto">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() =>
+                                                    handleCopyRow(
+                                                        row,
+                                                        result.columns
+                                                    )
+                                                }
+                                                className="h-6 w-6 p-0 bg-background/80 backdrop-blur-sm"
+                                                title="Copy row to clipboard"
+                                            >
+                                                {copiedRowIndex === rowIndex ? (
+                                                    <Check className="h-3 w-3 text-green-600" />
+                                                ) : (
+                                                    <Copy className="h-3 w-3" />
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                );
+                            });
+                        })()}
+                    </div>
+                )}
+
+                {/* JSON View */}
+                {currentView === "json" && (
+                    <div className="h-full p-4">
+                        <div className="h-full overflow-auto">
+                            <pre className="text-xs font-mono text-foreground whitespace-pre-wrap break-words bg-muted/30 p-4 rounded-md border">
+                                {JSON.stringify(result.rows, null, 2)}
+                            </pre>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 }

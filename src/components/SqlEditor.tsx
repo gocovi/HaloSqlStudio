@@ -1,56 +1,81 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Play, Save, FileText } from "lucide-react";
+import { Play } from "lucide-react";
+import Editor from "@monaco-editor/react";
 
 interface SqlEditorProps {
-  onExecute?: (sql: string) => void;
-  initialSql?: string;
-  readOnly?: boolean;
+    onExecute?: (sql: string) => void;
+    initialSql?: string;
+    readOnly?: boolean;
+    onContentChange?: (sql: string) => void;
 }
 
-export function SqlEditor({ onExecute, initialSql = "", readOnly = false }: SqlEditorProps) {
-  const [sql, setSql] = useState(initialSql);
+export function SqlEditor({
+    onExecute,
+    initialSql = "",
+    readOnly = false,
+    onContentChange,
+}: SqlEditorProps) {
+    const [sql, setSql] = useState(initialSql);
 
-  const handleExecute = () => {
-    if (onExecute && sql.trim()) {
-      onExecute(sql);
-    }
-  };
+    const handleExecute = () => {
+        if (onExecute && sql.trim()) {
+            onExecute(sql);
+        }
+    };
 
-  return (
-    <div className="flex flex-col h-full">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 p-2 border-b border-border bg-card">
-        <Button 
-          size="sm" 
-          onClick={handleExecute}
-          disabled={!sql.trim() || readOnly}
-          className="bg-success hover:bg-success/90 text-white"
-        >
-          <Play className="h-3 w-3 mr-1" />
-          Execute
-        </Button>
-        <Button size="sm" variant="outline">
-          <Save className="h-3 w-3 mr-1" />
-          Save
-        </Button>
-        <Button size="sm" variant="outline">
-          <FileText className="h-3 w-3 mr-1" />
-          Format
-        </Button>
-      </div>
+    return (
+        <div className="flex flex-col h-full">
+            {/* Toolbar */}
+            <div className="flex items-center gap-0 border-b border-border bg-card h-12">
+                <Button
+                    size="sm"
+                    onClick={handleExecute}
+                    disabled={!sql.trim() || readOnly}
+                    className="bg-success hover:bg-success/90 text-white rounded-none h-12 w-12 p-0"
+                    title="Execute Query"
+                >
+                    <Play className="h-4 w-4" />
+                </Button>
+            </div>
 
-      {/* Editor */}
-      <div className="flex-1 relative">
-        <textarea
-          value={sql}
-          onChange={(e) => setSql(e.target.value)}
-          readOnly={readOnly}
-          className="w-full h-full p-4 bg-editor-background text-foreground font-mono text-sm resize-none border-none outline-none"
-          placeholder="-- Enter your SQL query here..."
-          spellCheck={false}
-        />
-      </div>
-    </div>
-  );
+            {/* Editor */}
+            <div className="flex-1">
+                <Editor
+                    height="100%"
+                    defaultLanguage="sql"
+                    value={sql}
+                    onChange={(value) => {
+                        const newValue = value || "";
+                        setSql(newValue);
+                        onContentChange?.(newValue);
+                    }}
+                    options={{
+                        readOnly,
+                        minimap: { enabled: false },
+                        fontSize: 14,
+                        lineNumbers: "on",
+                        roundedSelection: false,
+                        scrollBeyondLastLine: false,
+                        automaticLayout: true,
+                        theme: "vs-dark",
+                        ariaLabel: "SQL Editor",
+                    }}
+                    beforeMount={(monaco) => {
+                        monaco.editor.defineTheme("vs-dark", {
+                            base: "vs-dark",
+                            inherit: true,
+                            rules: [],
+                            colors: {},
+                        });
+                    }}
+                    onMount={(editor) => {
+                        editor.updateOptions({
+                            theme: "vs-dark",
+                        });
+                    }}
+                />
+            </div>
+        </div>
+    );
 }
