@@ -52,15 +52,27 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				// IDE Specific Colors
+				editor: {
+					background: 'hsl(var(--editor-background))',
+					gutter: 'hsl(var(--editor-gutter))'
+				},
 				sidebar: {
-					DEFAULT: 'hsl(var(--sidebar-background))',
-					foreground: 'hsl(var(--sidebar-foreground))',
-					primary: 'hsl(var(--sidebar-primary))',
-					'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-					accent: 'hsl(var(--sidebar-accent))',
-					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
-					border: 'hsl(var(--sidebar-border))',
-					ring: 'hsl(var(--sidebar-ring))'
+					background: 'hsl(var(--sidebar-background))'
+				},
+				tab: {
+					background: 'hsl(var(--tab-background))',
+					active: 'hsl(var(--tab-active))'
+				},
+				success: 'hsl(var(--success))',
+				warning: 'hsl(var(--warning))',
+				info: 'hsl(var(--info))',
+				syntax: {
+					keyword: 'hsl(var(--syntax-keyword))',
+					string: 'hsl(var(--syntax-string))',
+					number: 'hsl(var(--syntax-number))',
+					comment: 'hsl(var(--syntax-comment))',
+					function: 'hsl(var(--syntax-function))'
 				}
 			},
 			borderRadius: {
