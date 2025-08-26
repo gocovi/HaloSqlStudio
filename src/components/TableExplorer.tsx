@@ -42,7 +42,7 @@ export function TableExplorer({ tables, onTableSelect, onColumnSelect }: TableEx
   });
 
   return (
-    <div className="flex flex-col h-full bg-sidebar-background border-r border-border">
+    <div className="flex flex-col h-full bg-background border-r border-border">
       {/* Header */}
       <div className="p-3 border-b border-border">
         <div className="flex items-center gap-2 mb-3">
