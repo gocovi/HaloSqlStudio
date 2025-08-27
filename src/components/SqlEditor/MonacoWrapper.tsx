@@ -3,13 +3,13 @@ import Editor from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
 import * as monaco from "monaco-editor";
 import { useMonacoSetup } from "./hooks/useMonacoSetup";
-import type { TableInfo } from "@/lib/halo-api";
+import type { TableInfo } from "@/services/api/types";
 
 // Extend Window interface for global table access
 declare global {
     interface Window {
-        __HALO_TABLES__: any[];
-        monaco: any;
+        __HALO_TABLES__: TableInfo[];
+        monaco: typeof monaco;
     }
 }
 
@@ -39,17 +39,12 @@ export function MonacoWrapper({
 
             // Listen for custom save and execute events using command service
             try {
-                const disposable = editor.addCommand(
+                editor.addCommand(
                     monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
                     () => {
                         onSave();
                     }
                 );
-
-                // Store disposable for cleanup if it exists
-                if (disposable && typeof disposable.dispose === "function") {
-                    disposableRef.current = disposable;
-                }
             } catch (error) {
                 console.warn("Failed to add command binding:", error);
             }

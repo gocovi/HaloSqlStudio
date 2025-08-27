@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { QueryResult } from "@/lib/halo-api";
+import type { QueryResult } from "@/services/api/types";
 import { useResultsSorting } from "./hooks/useResultsSorting";
 import { useColumnResize } from "./hooks/useColumnResize";
 import { useResultsCopy } from "./hooks/useResultsCopy";
@@ -254,9 +254,9 @@ const MemoizedTableRow = memo(
         copiedRowIndex,
         copiedCell,
     }: {
-        row: any;
+        row: Record<string, string>;
         rowIndex: number;
-        columns: any[];
+        columns: { name: string }[];
         searchResults: Array<{
             rowIndex: number;
             colIndex: number;
@@ -264,10 +264,13 @@ const MemoizedTableRow = memo(
         }>;
         currentSearchIndex: number;
         columnWidths: Record<string, number>;
-        sortConfig: any;
+        sortConfig: { key: string; direction: "asc" | "desc" } | null;
         onSort: (columnName: string) => void;
         onResizeStart: (e: React.MouseEvent, columnName: string) => void;
-        onCopyRow: (row: any, columns: any[]) => void;
+        onCopyRow: (
+            row: Record<string, string>,
+            columns: { name: string }[]
+        ) => void;
         onCopyCell: (value: string, rowIndex: number, colIndex: number) => void;
         copiedRowIndex: number | null;
         copiedCell: { rowIndex: number; colIndex: number } | null;
