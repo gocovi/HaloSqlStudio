@@ -4,7 +4,8 @@ import { TableExplorer } from "@/components/TableExplorer";
 import { QueryTabs } from "@/components/QueryTabs";
 import { QueryTab } from "@/components/QueryTab";
 import { useAuth } from "@/contexts/AuthContext";
-import { haloApiService, QueryResult, TableInfo } from "@/lib/halo-api";
+import { useTables } from "@/contexts/TablesContext";
+import { haloApiService, QueryResult } from "@/lib/halo-api";
 import { Button } from "@/components/ui/button";
 import { ConfigDialog } from "@/components/ConfigDialog";
 import { LogOut, RefreshCw } from "lucide-react";
@@ -27,9 +28,8 @@ const executeQuery = async (sql: string): Promise<QueryResult> => {
 
 const Index = () => {
     const { isAuthenticated, logout, config } = useAuth();
+    const { tables, isLoading: isLoadingTables, refreshTables } = useTables();
     const navigate = useNavigate();
-    const [tables, setTables] = useState<TableInfo[]>([]);
-    const [isLoadingTables, setIsLoadingTables] = useState(false);
 
     // Use the tab persistence hook
     const {
@@ -44,6 +44,7 @@ const Index = () => {
         closeTab,
         setActiveTab,
         clearNonPinnedTabs,
+        immediateSave,
     } = useTabPersistence();
 
     // Convert PersistedTab to Tab with React components
@@ -59,25 +60,14 @@ const Index = () => {
                 onContentChange={(sql) =>
                     updateTabContent(persistedTab.id, sql)
                 }
+                onSave={async (sql) => {
+                    await updateTabContent(persistedTab.id, sql);
+                    // Force immediate save when save button is clicked
+                    await immediateSave();
+                }}
             />
         ),
     }));
-
-    const loadTables = useCallback(async () => {
-        if (!isAuthenticated) return;
-
-        setIsLoadingTables(true);
-        try {
-            const fetchedTables = await haloApiService.getTables();
-            setTables(fetchedTables);
-        } catch (error) {
-            console.error("Error loading tables:", error);
-            // Fallback to empty tables
-            setTables([]);
-        } finally {
-            setIsLoadingTables(false);
-        }
-    }, [isAuthenticated]);
 
     // Check authentication on mount
     useEffect(() => {
@@ -85,10 +75,7 @@ const Index = () => {
             navigate("/login");
             return;
         }
-
-        // Load tables when authenticated
-        loadTables();
-    }, [isAuthenticated, navigate, loadTables]);
+    }, [isAuthenticated, navigate]);
 
     const handleNewTab = useCallback(async () => {
         const newTabId = await addTab(`Query ${persistedTabs.length + 1}`);
@@ -166,7 +153,7 @@ const Index = () => {
                     tables={tables}
                     onTableSelect={handleTableSelect}
                     onColumnSelect={handleColumnSelect}
-                    onRefresh={loadTables}
+                    onRefresh={refreshTables}
                     isLoading={isLoadingTables}
                 />
             </div>

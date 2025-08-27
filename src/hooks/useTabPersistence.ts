@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useIndexedDB, type QueryRecord } from "./useIndexedDB";
 
 export interface PersistedTab {
@@ -10,11 +10,12 @@ export interface PersistedTab {
 }
 
 export interface TabPersistenceState {
-    tabs: PersistedTab[];
+    tabs: QueryRecord[];
     activeTabId: string;
 }
 
 const MAX_TABS = 50; // Increased limit since we're using IndexedDB
+const SAVE_DEBOUNCE_MS = 2000; // 2 second debounce for autosave
 
 export function useTabPersistence() {
     const { isReady, saveTabsState, loadTabsState, saveQuery } = useIndexedDB();
@@ -22,6 +23,11 @@ export function useTabPersistence() {
     const [activeTabId, setActiveTabId] = useState<string>("console");
     const [isLoaded, setIsLoaded] = useState(false);
     const [editingTabId, setEditingTabId] = useState<string | null>(null);
+
+    // Debounced save mechanism
+    const saveTimeoutRef = useRef<NodeJS.Timeout>();
+    const pendingTabsRef = useRef<QueryRecord[]>([]);
+    const pendingActiveTabIdRef = useRef<string>("console");
 
     // Load tabs from IndexedDB on mount
     useEffect(() => {
@@ -59,6 +65,11 @@ export function useTabPersistence() {
                     setActiveTabId(
                         stored.activeTabId || stored.tabs[0]?.id || "console"
                     );
+
+                    // Initialize pending refs
+                    pendingTabsRef.current = stored.tabs;
+                    pendingActiveTabIdRef.current =
+                        stored.activeTabId || stored.tabs[0]?.id || "console";
                 } else {
                     // Initialize with default console tab
                     const defaultTabs: QueryRecord[] = [
@@ -75,6 +86,8 @@ export function useTabPersistence() {
                     ];
                     setTabs(defaultTabs);
                     setActiveTabId("console");
+                    pendingTabsRef.current = defaultTabs;
+                    pendingActiveTabIdRef.current = "console";
                 }
             } catch (error) {
                 console.warn("Failed to load tabs from IndexedDB:", error);
@@ -93,6 +106,8 @@ export function useTabPersistence() {
                 ];
                 setTabs(defaultTabs);
                 setActiveTabId("console");
+                pendingTabsRef.current = defaultTabs;
+                pendingActiveTabIdRef.current = "console";
             } finally {
                 setIsLoaded(true);
             }
@@ -101,33 +116,54 @@ export function useTabPersistence() {
         loadTabs();
     }, [isReady, loadTabsState]);
 
-    // Save tabs to IndexedDB whenever they change
-    const saveTabs = useCallback(
-        async (newTabs: QueryRecord[], newActiveTabId: string) => {
-            if (!isReady) return;
+    // Debounced save function
+    const debouncedSave = useCallback(async () => {
+        if (!isReady) return;
 
-            try {
-                // Limit the number of tabs to prevent issues
-                const tabsToSave = newTabs.slice(-MAX_TABS);
+        try {
+            // Limit the number of tabs to prevent issues
+            const tabsToSave = pendingTabsRef.current.slice(-MAX_TABS);
+            await saveTabsState(tabsToSave, pendingActiveTabIdRef.current);
+        } catch (error) {
+            console.warn("Failed to save tabs to IndexedDB:", error);
+        }
+    }, [isReady, saveTabsState]);
 
-                await saveTabsState(tabsToSave, newActiveTabId);
-            } catch (error) {
-                console.warn("Failed to save tabs to IndexedDB:", error);
-            }
-        },
-        [isReady, saveTabsState]
-    );
+    // Schedule a save with debouncing
+    const scheduleSave = useCallback(() => {
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+        }
 
-    // Update tabs and save to IndexedDB
+        saveTimeoutRef.current = setTimeout(debouncedSave, SAVE_DEBOUNCE_MS);
+    }, [debouncedSave]);
+
+    // Immediate save function (for critical operations)
+    const immediateSave = useCallback(async () => {
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+        }
+        await debouncedSave();
+    }, [debouncedSave]);
+
+    // Update tabs and schedule save
     const updateTabs = useCallback(
         async (newTabs: QueryRecord[], newActiveTabId?: string) => {
             setTabs(newTabs);
             if (newActiveTabId !== undefined) {
                 setActiveTabId(newActiveTabId);
             }
-            await saveTabs(newTabs, newActiveTabId || activeTabId);
+
+            // Update pending refs
+            pendingTabsRef.current = newTabs;
+            if (newActiveTabId !== undefined) {
+                pendingActiveTabIdRef.current = newActiveTabId;
+            }
+
+            // Schedule debounced save
+            scheduleSave();
         },
-        [activeTabId, saveTabs]
+        [scheduleSave]
     );
 
     // Add a new tab
@@ -211,9 +247,10 @@ export function useTabPersistence() {
     const setActiveTab = useCallback(
         async (tabId: string) => {
             setActiveTabId(tabId);
-            await saveTabs(tabs, tabId);
+            pendingActiveTabIdRef.current = tabId;
+            scheduleSave();
         },
-        [tabs, saveTabs]
+        [scheduleSave]
     );
 
     // Clear all non-pinned tabs
@@ -221,6 +258,15 @@ export function useTabPersistence() {
         const pinnedTabs = tabs.filter((tab) => tab.isPinned);
         await updateTabs(pinnedTabs, "console");
     }, [tabs, updateTabs]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+            }
+        };
+    }, []);
 
     return {
         tabs,
@@ -235,5 +281,6 @@ export function useTabPersistence() {
         setActiveTab,
         clearNonPinnedTabs,
         updateTabs,
+        immediateSave, // Expose for manual save operations
     };
 }

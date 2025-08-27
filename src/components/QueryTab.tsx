@@ -1,12 +1,18 @@
 import { useState } from "react";
 import { SqlEditor } from "./SqlEditor";
 import { ResultsGrid } from "./ResultsGrid";
-import type { QueryResult } from "@/lib/halo-api";
+import {
+    ResizablePanelGroup,
+    ResizablePanel,
+    ResizableHandle,
+} from "./ui/resizable";
+import type { QueryResult, TableInfo } from "@/lib/halo-api";
 
 interface QueryTabProps {
     initialSql?: string;
     onExecute?: (sql: string) => Promise<QueryResult>;
     onContentChange?: (sql: string) => void;
+    onSave?: (sql: string) => void;
     sqlContent?: string;
 }
 
@@ -14,6 +20,7 @@ export function QueryTab({
     initialSql,
     onExecute,
     onContentChange,
+    onSave,
     sqlContent,
 }: QueryTabProps) {
     const [result, setResult] = useState<QueryResult | null>(null);
@@ -43,21 +50,34 @@ export function QueryTab({
         }
     };
 
+    // Use onSave if provided, otherwise fall back to onContentChange
+    const handleSave = onSave || onContentChange;
+
     return (
         <div className="flex flex-col h-full">
-            {/* Editor Section */}
-            <div className="h-1/2 border-b border-border">
-                <SqlEditor
-                    initialSql={sqlContent || initialSql}
-                    onExecute={handleExecute}
-                    onContentChange={onContentChange}
-                />
-            </div>
+            <ResizablePanelGroup direction="vertical" className="h-full">
+                {/* Editor Section */}
+                <ResizablePanel defaultSize={50} minSize={20}>
+                    <SqlEditor
+                        initialSql={sqlContent || initialSql}
+                        onExecute={handleExecute}
+                        onContentChange={onContentChange}
+                        onSave={handleSave}
+                    />
+                </ResizablePanel>
 
-            {/* Results Section */}
-            <div className="h-1/2">
-                <ResultsGrid result={result} loading={loading} error={error} />
-            </div>
+                {/* Resizable Handle */}
+                <ResizableHandle withHandle />
+
+                {/* Results Section */}
+                <ResizablePanel defaultSize={50} minSize={20}>
+                    <ResultsGrid
+                        result={result}
+                        loading={loading}
+                        error={error}
+                    />
+                </ResizablePanel>
+            </ResizablePanelGroup>
         </div>
     );
 }

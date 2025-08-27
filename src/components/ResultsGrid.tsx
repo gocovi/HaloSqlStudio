@@ -34,6 +34,10 @@ export function ResultsGrid({ result, loading, error }: ResultsGridProps) {
     const [resizeStartX, setResizeStartX] = useState(0);
     const [resizeColumn, setResizeColumn] = useState<string | null>(null);
     const [copiedRowIndex, setCopiedRowIndex] = useState<number | null>(null);
+    const [copiedCell, setCopiedCell] = useState<{
+        rowIndex: number;
+        colIndex: number;
+    } | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState<
         Array<{ rowIndex: number; colIndex: number; value: string }>
@@ -41,7 +45,52 @@ export function ResultsGrid({ result, loading, error }: ResultsGridProps) {
     const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
     const [isSearching, setIsSearching] = useState(false);
     const [currentView, setCurrentView] = useState<"table" | "json">("table");
+    const [sortConfig, setSortConfig] = useState<{
+        key: string;
+        direction: "asc" | "desc";
+    } | null>(null);
     const tableRef = useRef<HTMLDivElement>(null);
+
+    // Sort rows based on current sort configuration
+    const sortedRows = useMemo(() => {
+        if (!result?.rows || !sortConfig) return result?.rows || [];
+
+        console.log(
+            "Sorting rows by:",
+            sortConfig.key,
+            "direction:",
+            sortConfig.direction
+        );
+        console.log(
+            "Sample values:",
+            result.rows.slice(0, 3).map((row) => row[sortConfig.key])
+        );
+
+        const sorted = [...result.rows].sort((a, b) => {
+            const aValue = a[sortConfig.key];
+            const bValue = b[sortConfig.key];
+
+            // Handle null/undefined values
+            if (aValue === null || aValue === undefined) return 1;
+            if (bValue === null || bValue === undefined) return -1;
+
+            // Convert to strings for comparison
+            const aStr = String(aValue).toLowerCase();
+            const bStr = String(bValue).toLowerCase();
+
+            if (sortConfig.direction === "asc") {
+                return aStr.localeCompare(bStr);
+            } else {
+                return bStr.localeCompare(aStr);
+            }
+        });
+
+        console.log(
+            "Sorted sample values:",
+            sorted.slice(0, 3).map((row) => row[sortConfig.key])
+        );
+        return sorted;
+    }, [result?.rows, sortConfig]);
 
     // Direct search function - called only when user presses Enter
     const performSearch = useCallback(
@@ -59,13 +108,14 @@ export function ResultsGrid({ result, loading, error }: ResultsGridProps) {
                 value: string;
             }> = [];
 
-            // Search through rows and columns directly
-            result?.rows?.forEach((row, rowIndex) => {
+            // Search through the display rows (which may be sorted) to get correct indices
+            const rowsToSearch = sortConfig ? sortedRows : result?.rows || [];
+            rowsToSearch.forEach((row, displayIndex) => {
                 result?.columns?.forEach((col, colIndex) => {
                     const value = String(row[col.name] || "");
                     if (value.toLowerCase().includes(searchLower)) {
                         results.push({
-                            rowIndex,
+                            rowIndex: displayIndex, // Use display index for highlighting
                             colIndex,
                             value: String(row[col.name] || ""),
                         });
@@ -76,7 +126,7 @@ export function ResultsGrid({ result, loading, error }: ResultsGridProps) {
             setSearchResults(results);
             setCurrentSearchIndex(0);
         },
-        [result?.rows, result?.columns]
+        [result?.rows, result?.columns, sortConfig, sortedRows]
     );
 
     // Initialize default column widths
@@ -218,6 +268,71 @@ export function ResultsGrid({ result, loading, error }: ResultsGridProps) {
         },
         [result?.rows]
     );
+
+    // Copy individual cell to clipboard
+    const handleCopyCell = useCallback(
+        async (value: string, rowIndex: number, colIndex: number) => {
+            try {
+                await navigator.clipboard.writeText(value);
+                setCopiedCell({ rowIndex, colIndex });
+                setTimeout(() => setCopiedCell(null), 2000);
+            } catch (error) {
+                console.error("Failed to copy to clipboard:", error);
+            }
+        },
+        []
+    );
+
+    // Handle column sorting
+    const handleSort = useCallback((columnName: string) => {
+        console.log("Sorting by:", columnName);
+        setSortConfig((prev) => {
+            if (prev?.key === columnName) {
+                // If clicking the same column, toggle direction
+                const newDirection = prev.direction === "asc" ? "desc" : "asc";
+                console.log("Toggling direction to:", newDirection);
+                return {
+                    key: columnName,
+                    direction: newDirection,
+                };
+            } else {
+                // If clicking a new column, start with ascending
+                console.log("New column, starting with ascending");
+                return {
+                    key: columnName,
+                    direction: "asc",
+                };
+            }
+        });
+    }, []);
+
+    // Get the rows to display (sorted if sorting is active)
+    const displayRows = useMemo(() => {
+        if (!result?.rows) return [];
+
+        let rows = sortConfig ? sortedRows : result.rows;
+
+        // Apply search filtering if search is active
+        if (searchResults.length > 0) {
+            rows = rows.filter((row) =>
+                result.columns.some((col) => {
+                    const value = String(row[col.name] || "");
+                    return value
+                        .toLowerCase()
+                        .includes(searchTerm.toLowerCase());
+                })
+            );
+        }
+
+        return rows;
+    }, [
+        result?.rows,
+        sortConfig,
+        sortedRows,
+        searchResults.length,
+        searchTerm,
+        result?.columns,
+    ]);
 
     // Export functions
     const handleExportJSON = useCallback(() => {
@@ -443,9 +558,32 @@ export function ResultsGrid({ result, loading, error }: ResultsGridProps) {
                                             )}
                                         >
                                             <div className="flex items-center justify-between">
-                                                <span className="truncate">
-                                                    {column.name}
-                                                </span>
+                                                <button
+                                                    onClick={() =>
+                                                        handleSort(column.name)
+                                                    }
+                                                    className="flex items-center gap-1 hover:bg-accent/50 px-2 py-1 rounded transition-colors cursor-pointer flex-1 text-left"
+                                                    title={`Click to sort by ${column.name}`}
+                                                >
+                                                    <span className="truncate">
+                                                        {column.name}
+                                                    </span>
+                                                    {sortConfig?.key ===
+                                                        column.name && (
+                                                        <div className="flex flex-col text-muted-foreground">
+                                                            {sortConfig.direction ===
+                                                            "asc" ? (
+                                                                <span className="text-primary">
+                                                                    ↑
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-primary">
+                                                                    ↓
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </button>
                                                 {index <
                                                     result.columns.length -
                                                         1 && (
@@ -466,23 +604,6 @@ export function ResultsGrid({ result, loading, error }: ResultsGridProps) {
                             </TableHeader>
                             <TableBody>
                                 {(() => {
-                                    // Only filter rows when there are search results (after pressing Enter)
-                                    const displayRows =
-                                        searchResults.length > 0
-                                            ? result.rows.filter((row) =>
-                                                  result.columns.some((col) => {
-                                                      const value = String(
-                                                          row[col.name] || ""
-                                                      );
-                                                      return value
-                                                          .toLowerCase()
-                                                          .includes(
-                                                              searchTerm.toLowerCase()
-                                                          );
-                                                  })
-                                              )
-                                            : result.rows;
-
                                     if (
                                         searchResults.length > 0 &&
                                         displayRows.length === 0
@@ -503,6 +624,7 @@ export function ResultsGrid({ result, loading, error }: ResultsGridProps) {
                                     }
 
                                     return displayRows.map((row, rowIndex) => {
+                                        // Find the original index in the unsorted rows for proper highlighting
                                         const originalRowIndex =
                                             result.rows.indexOf(row);
                                         return (
@@ -546,6 +668,12 @@ export function ResultsGrid({ result, loading, error }: ResultsGridProps) {
                                                                         currentSearchIndex
                                                             );
 
+                                                        const isCopied =
+                                                            copiedCell?.rowIndex ===
+                                                                originalRowIndex &&
+                                                            copiedCell?.colIndex ===
+                                                                cellIndex;
+
                                                         return (
                                                             <TableCell
                                                                 key={cellIndex}
@@ -560,7 +688,7 @@ export function ResultsGrid({ result, loading, error }: ResultsGridProps) {
                                                                     maxWidth: 500,
                                                                 }}
                                                                 className={cn(
-                                                                    "text-xs border-r border-border last:border-r-0 font-mono whitespace-nowrap overflow-hidden",
+                                                                    "text-xs border-r border-border last:border-r-0 font-mono whitespace-nowrap overflow-hidden relative group/cell",
                                                                     // Only highlight when there are actual search results
                                                                     searchResults.length >
                                                                         0 &&
@@ -576,7 +704,7 @@ export function ResultsGrid({ result, loading, error }: ResultsGridProps) {
                                                                 )}
                                                             >
                                                                 <div
-                                                                    className="truncate"
+                                                                    className="truncate relative"
                                                                     title={
                                                                         cellValue
                                                                     }
@@ -597,6 +725,32 @@ export function ResultsGrid({ result, loading, error }: ResultsGridProps) {
                                                                     ) : (
                                                                         cellValue
                                                                     )}
+
+                                                                    {/* Copy icon overlay */}
+                                                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/cell:opacity-100 transition-opacity">
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            onClick={(
+                                                                                e
+                                                                            ) => {
+                                                                                e.stopPropagation();
+                                                                                handleCopyCell(
+                                                                                    cellValue,
+                                                                                    originalRowIndex,
+                                                                                    cellIndex
+                                                                                );
+                                                                            }}
+                                                                            className="h-6 w-6 p-0 bg-background/90 hover:bg-background border shadow-sm"
+                                                                            title="Copy to clipboard"
+                                                                        >
+                                                                            {isCopied ? (
+                                                                                <Check className="h-3 w-3 text-green-600" />
+                                                                            ) : (
+                                                                                <Copy className="h-3 w-3" />
+                                                                            )}
+                                                                        </Button>
+                                                                    </div>
                                                                 </div>
                                                             </TableCell>
                                                         );
@@ -612,23 +766,6 @@ export function ResultsGrid({ result, loading, error }: ResultsGridProps) {
                         {/* Copy buttons positioned absolutely over table rows */}
                         {(() => {
                             if (!result?.rows || !result?.columns) return null;
-
-                            // Only show copy buttons for filtered rows when search is active
-                            const displayRows =
-                                searchResults.length > 0
-                                    ? result.rows.filter((row) =>
-                                          result.columns.some((col) => {
-                                              const value = String(
-                                                  row[col.name] || ""
-                                              );
-                                              return value
-                                                  .toLowerCase()
-                                                  .includes(
-                                                      searchTerm.toLowerCase()
-                                                  );
-                                          })
-                                      )
-                                    : result.rows;
 
                             return displayRows.map((row, rowIndex) => {
                                 const originalRowIndex =
