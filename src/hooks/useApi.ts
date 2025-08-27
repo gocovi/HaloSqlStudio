@@ -1,8 +1,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { useConfig } from "./useConfig";
 import { ApiClient } from "@/services/api/client";
-import * as queryApi from "@/services/api/queries";
-import type { QueryResult, TableInfo } from "@/services/api/types";
+import type { QueryResult, TableInfo, ReportInfo } from "@/services/api/types";
 import * as authService from "@/services/auth/authService";
 
 export function useApi() {
@@ -59,13 +58,63 @@ export function useApi() {
             setError(null);
 
             try {
-                const result = await queryApi.executeQuery(apiClient, sql);
-                return result;
-            } catch (err) {
+                const startTime = Date.now();
+
+                const body = [
+                    {
+                        sql,
+                        _testonly: true,
+                        _loadreportonly: true,
+                    },
+                ];
+
+                const response = await apiClient.makeRequest("/Report", {
+                    method: "POST",
+                    body: JSON.stringify(body),
+                });
+
+                const executionTime = Date.now() - startTime;
+
+                // Check for SQL errors first
+                if (response.report?.load_error) {
+                    return {
+                        columns: [],
+                        rows: [],
+                        executionTime,
+                        error: response.report.load_error,
+                        hasError: true,
+                    };
+                }
+
+                if (
+                    response.available_columns &&
+                    response.report &&
+                    response.report.rows
+                ) {
+                    return {
+                        columns: response.available_columns,
+                        rows: response.report.rows,
+                        rowCount: response.report.rows.length,
+                        executionTime,
+                        hasError: false,
+                    };
+                }
+
+                // Fallback for unexpected response format
+                return {
+                    columns: [],
+                    rows: [],
+                    executionTime,
+                    error: "Unexpected response format",
+                    hasError: true,
+                };
+            } catch (error) {
                 const errorMessage =
-                    err instanceof Error ? err.message : "An error occurred";
+                    error instanceof Error
+                        ? error.message
+                        : "Failed to execute query";
                 setError(errorMessage);
-                throw err;
+                throw error;
             } finally {
                 setIsLoading(false);
             }
@@ -80,14 +129,144 @@ export function useApi() {
         }
 
         try {
-            return await queryApi.getTables(apiClient);
-        } catch (err) {
-            const errorMessage =
-                err instanceof Error ? err.message : "Failed to fetch tables";
-            setError(errorMessage);
-            throw err;
+            const result = await executeQuery(
+                "SELECT TABLE_NAME as name, COLUMN_NAME as column_name, DATA_TYPE as data_type FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'dbo'"
+            );
+
+            if (!result.rows || result.hasError) {
+                throw new Error(result.error || "Failed to fetch tables");
+            }
+
+            // Group columns by table name
+            const tableMap = new Map<
+                string,
+                { name: string; columns: { name: string; data_type: string }[] }
+            >();
+            result.rows.forEach(
+                (row: Record<string, string>, index: number) => {
+                    const tableName = row.name;
+                    const column = {
+                        name: row.column_name,
+                        data_type: row.data_type,
+                    };
+
+                    if (!tableMap.has(tableName)) {
+                        tableMap.set(tableName, {
+                            name: tableName,
+                            columns: [],
+                        });
+                    }
+                    tableMap.get(tableName)!.columns.push(column);
+                }
+            );
+
+            // Convert to array and sort, providing required ColumnInfo properties
+            const tables: TableInfo[] = Array.from(tableMap.values())
+                .map((table) => ({
+                    name: table.name,
+                    columns: table.columns
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .map((col, index) => ({
+                            id: index,
+                            name: col.name,
+                            data_type: col.data_type,
+                            data_type_group: "unknown", // Default value since we don't have this info
+                        })),
+                }))
+                .sort((a, b) => a.name.localeCompare(b.name));
+
+            return tables;
+        } catch (error) {
+            console.error("Error fetching tables:", error);
+            throw error;
         }
-    }, [apiClient]);
+    }, [apiClient, executeQuery]);
+
+    // Get reports
+    const getReports = useCallback(async (): Promise<ReportInfo[]> => {
+        if (!apiClient) {
+            throw new Error("API not configured - check configuration");
+        }
+
+        try {
+            const result = await executeQuery(
+                `SELECT APid [Id], fvalue [Group], APTitle [Name], APSQL [SQL] FROM AnalyzerProfile JOIN LOOKUP ON (APGroupID + 1) = fcode AND fid = 41`
+            );
+
+            if (!result.rows || result.hasError) {
+                throw new Error(result.error || "Failed to fetch reports");
+            }
+
+            // Group reports by fvalue (Group)
+            const groupMap = new Map<
+                string,
+                { id: string; name: string; sql: string }[]
+            >();
+            result.rows.forEach((row: Record<string, string>) => {
+                const group = row.Group || "Uncategorized";
+                const report = {
+                    id: row.Id.toString(),
+                    name: row.Name || "Unnamed Report",
+                    sql: row.SQL || "",
+                };
+
+                if (!groupMap.has(group)) {
+                    groupMap.set(group, []);
+                }
+                groupMap.get(group)!.push(report);
+            });
+
+            // Convert to array and sort
+            const reports: ReportInfo[] = Array.from(groupMap.entries())
+                .map(([groupName, groupReports]) => ({
+                    name: groupName,
+                    reports: groupReports.sort((a, b) =>
+                        a.name.localeCompare(b.name)
+                    ),
+                }))
+                .sort((a, b) => a.name.localeCompare(b.name));
+
+            return reports;
+        } catch (error) {
+            console.error("Error fetching reports:", error);
+            throw error;
+        }
+    }, [apiClient, executeQuery]);
+
+    // Update report
+    const updateReport = useCallback(
+        async (reportId: string, sql: string): Promise<void> => {
+            if (!apiClient) {
+                throw new Error("API not configured - check configuration");
+            }
+
+            // Clear any previous errors when attempting to save
+            setError(null);
+
+            try {
+                await apiClient.makeRequest("/report", {
+                    method: "POST",
+                    body: JSON.stringify([
+                        {
+                            sql,
+                            id: parseInt(reportId, 10),
+                        },
+                    ]),
+                });
+
+                // If the request succeeds without throwing an error, consider it successful
+                // No need to check for a returned report object
+            } catch (error) {
+                const errorMessage =
+                    error instanceof Error
+                        ? error.message
+                        : "Failed to update report";
+                setError(errorMessage);
+                throw error;
+            }
+        },
+        [apiClient]
+    );
 
     // Clear error
     const clearError = useCallback(() => {
@@ -97,9 +276,10 @@ export function useApi() {
     return {
         executeQuery,
         getTables,
+        getReports,
+        updateReport,
         isLoading,
         error,
         clearError,
-        isConfigured: !!apiClient,
     };
 }

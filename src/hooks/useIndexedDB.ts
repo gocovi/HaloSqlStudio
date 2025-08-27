@@ -13,6 +13,10 @@ export interface QueryRecord {
     tags: string[];
     error?: string;
     rowCount?: number;
+    // Report metadata
+    isReport?: boolean;
+    reportId?: string;
+    originalSql?: string;
 }
 
 export interface TabState {

@@ -13,6 +13,8 @@ interface SearchBoxProps {
     onSearch?: (value: string) => void;
     onNavigateUp?: () => void;
     onNavigateDown?: () => void;
+    onFocus?: () => void;
+    onBlur?: () => void;
     className?: string;
     inputClassName?: string;
     showClearButton?: boolean;
@@ -32,6 +34,8 @@ export function SearchBox({
     onSearch,
     onNavigateUp,
     onNavigateDown,
+    onFocus,
+    onBlur,
     className,
     inputClassName,
     showClearButton = true,
@@ -161,6 +165,8 @@ export function SearchBox({
                 value={inputValue}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
+                onFocus={onFocus}
+                onBlur={onBlur}
                 className={cn("pl-8 pr-8", sizeClasses[size], inputClassName)}
                 autoFocus={autoFocus}
                 disabled={disabled}

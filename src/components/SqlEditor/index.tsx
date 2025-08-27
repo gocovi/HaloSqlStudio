@@ -9,6 +9,8 @@ interface SqlEditorProps {
     onContentChange?: (sql: string) => void;
     onSave?: (sql: string) => void;
     onSavingChange?: (isSaving: boolean) => void;
+    isReport?: boolean;
+    originalSql?: string; // For reports, this is the original SQL from the database
 }
 
 export function SqlEditor({
@@ -18,6 +20,8 @@ export function SqlEditor({
     onContentChange,
     onSave,
     onSavingChange,
+    isReport = false,
+    originalSql,
 }: SqlEditorProps) {
     const {
         sql,
@@ -31,6 +35,7 @@ export function SqlEditor({
         onExecute,
         onContentChange,
         onSave,
+        originalSql,
     });
 
     // Notify parent when saving state changes

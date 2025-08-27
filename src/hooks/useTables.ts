@@ -1,46 +1,62 @@
-import { useEffect, useCallback, useRef } from "react";
-import { apiService } from "@/services/api/apiService";
-import {
-    useTables as useTablesData,
-    useTablesLoading,
-    useTablesStore,
-} from "@/stores/tablesStore";
+import { useState, useEffect, useCallback } from "react";
+import { useApi } from "./useApi";
+import { useConfig } from "./useConfig";
+import type { TableInfo, ReportInfo } from "@/services/api/types";
 
-/**
- * Custom hook that provides the same interface as the old TablesContext
- * but uses Zustand under the hood for better performance
- */
 export function useTables() {
-    const tables = useTablesData();
-    const storeLoading = useTablesLoading();
-    const hasLoadedRef = useRef(false);
+    const [tables, setTables] = useState<TableInfo[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const { getTables: fetchTables } = useApi();
+    const { isLoaded: configLoaded } = useConfig();
 
-    // Memoize the refreshTables function to prevent infinite loops
     const refreshTables = useCallback(async () => {
-        try {
-            const fetchedTables = await apiService.getTables();
-            useTablesStore.getState().setTables(fetchedTables);
-        } catch (error) {
-            console.error("Failed to refresh tables:", error);
-        }
-    }, []);
+        if (!configLoaded) return; // Don't fetch until config is loaded
 
-    // Only load tables once when component first mounts and API is configured
+        setIsLoading(true);
+        try {
+            const fetchedTables = await fetchTables();
+            setTables(fetchedTables);
+        } catch (error) {
+            console.error("Failed to fetch tables:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [fetchTables, configLoaded]);
+
     useEffect(() => {
-        if (
-            !hasLoadedRef.current &&
-            tables.length === 0 &&
-            apiService.isConfigured()
-        ) {
-            hasLoadedRef.current = true;
+        if (configLoaded) {
             refreshTables();
         }
-    }, [refreshTables, tables]);
+    }, [refreshTables, configLoaded]);
 
-    return {
-        tables,
-        isLoading: storeLoading,
-        error: null,
-        refreshTables,
-    };
+    return { tables, isLoading, refreshTables };
+}
+
+export function useReports() {
+    const [reports, setReports] = useState<ReportInfo[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const { getReports: fetchReports } = useApi();
+    const { isLoaded: configLoaded } = useConfig();
+
+    const refreshReports = useCallback(async () => {
+        if (!configLoaded) return; // Don't fetch until config is loaded
+
+        setIsLoading(true);
+        try {
+            const fetchedReports = await fetchReports();
+            setReports(fetchedReports);
+        } catch (error) {
+            console.error("Failed to fetch reports:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [fetchReports, configLoaded]);
+
+    useEffect(() => {
+        if (configLoaded) {
+            refreshReports();
+        }
+    }, [refreshReports, configLoaded]);
+
+    return { reports, isLoading, refreshReports };
 }

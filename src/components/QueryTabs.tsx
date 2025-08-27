@@ -1,5 +1,4 @@
-import { useState, useRef } from "react";
-import { X, Plus, Terminal, MoreHorizontal, Play } from "lucide-react";
+import React, { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -9,27 +8,38 @@ import {
     ContextMenuSeparator,
     ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { Play, Plus, X, MoreHorizontal, Terminal, Save } from "lucide-react";
 
 interface Tab {
     id: string;
     title: string;
-    content: React.ReactNode;
     isPinned?: boolean;
+    isReport?: boolean;
+    hasUnsavedChanges?: boolean;
+    content?: React.ReactNode; // Add content property for React components
 }
 
 interface QueryTabsProps {
     tabs: Tab[];
-    activeTabId: string;
+    activeTabId: string | null;
     editingTabId: string | null;
     onTabChange: (tabId: string) => void;
     onTabClose: (tabId: string) => void;
     onCloseAllTabs?: () => void;
     onNewTab: () => void;
-    onTabTitleEdit?: (tabId: string, newTitle: string) => void;
-    onStartEditing?: (tabId: string) => void;
+    onTabTitleEdit: (tabId: string, newTitle: string) => void;
+    onStartEditing: (tab: Tab) => void;
     onExecute?: () => void;
+    onSave?: () => void; // Changed from (tabId: string) => void
     readOnly?: boolean;
+    activeTabRef?: React.RefObject<{ execute: () => void; save: () => void }>;
 }
 
 export function QueryTabs({
@@ -43,14 +53,16 @@ export function QueryTabs({
     onTabTitleEdit,
     onStartEditing,
     onExecute,
+    onSave,
     readOnly = false,
+    activeTabRef,
 }: QueryTabsProps) {
     const [editingTitle, setEditingTitle] = useState("");
 
     const handleDoubleClick = (tab: Tab) => {
         if (tab.isPinned || !onStartEditing) return;
         setEditingTitle(tab.title);
-        onStartEditing(tab.id);
+        onStartEditing(tab);
     };
 
     const handleTitleSubmit = (tabId: string) => {
@@ -96,6 +108,44 @@ export function QueryTabs({
                         </button>
                     </div>
                 )}
+
+                {/* Save button - always visible for report tabs, but disabled when appropriate */}
+                {onSave &&
+                    activeTabId &&
+                    (() => {
+                        const activeTab = tabs.find(
+                            (t) => t.id === activeTabId
+                        );
+                        const canSave =
+                            activeTab?.isReport &&
+                            activeTab?.hasUnsavedChanges &&
+                            !readOnly;
+
+                        // Always show save button for report tabs, but disable when appropriate
+                        if (activeTab?.isReport) {
+                            return (
+                                <div className="flex items-center border-r border-border">
+                                    <button
+                                        onClick={() => onSave?.()}
+                                        disabled={!canSave}
+                                        className="flex items-center justify-center h-8 w-8 rounded hover:bg-accent/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        title={
+                                            !canSave
+                                                ? readOnly
+                                                    ? "Cannot save in read-only mode"
+                                                    : activeTab?.hasUnsavedChanges
+                                                    ? "No changes to save"
+                                                    : "Save changes to report"
+                                                : "Save changes to report"
+                                        }
+                                    >
+                                        <Save className="h-5 w-5 text-blue-500" />
+                                    </button>
+                                </div>
+                            );
+                        }
+                        return null;
+                    })()}
 
                 <div className="flex overflow-x-auto scrollbar-thin">
                     {tabs.map((tab) => (

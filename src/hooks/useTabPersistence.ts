@@ -214,6 +214,19 @@ export function useTabPersistence() {
         [tabs, updateTabs]
     );
 
+    // Update a tab's metadata (including report info)
+    const updateTabMetadata = useCallback(
+        async (tabId: string, metadata: Partial<QueryRecord>) => {
+            const newTabs = tabs.map((tab) =>
+                tab.id === tabId
+                    ? { ...tab, ...metadata, lastModified: Date.now() }
+                    : tab
+            );
+            await updateTabs(newTabs);
+        },
+        [tabs, updateTabs]
+    );
+
     // Start editing a tab title
     const startEditingTab = useCallback((tabId: string) => {
         setEditingTabId(tabId);
@@ -276,6 +289,7 @@ export function useTabPersistence() {
         addTab,
         updateTabContent,
         updateTabTitle,
+        updateTabMetadata,
         startEditingTab,
         closeTab,
         setActiveTab,

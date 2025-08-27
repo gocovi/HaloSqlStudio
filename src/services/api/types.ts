@@ -27,3 +27,14 @@ export interface ApiResponse {
         loaded?: boolean;
     };
 }
+
+export interface ReportItem {
+    id: string;
+    name: string;
+    sql: string;
+}
+
+export interface ReportInfo {
+    name: string;
+    reports: ReportItem[];
+}

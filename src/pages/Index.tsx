@@ -1,66 +1,84 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { TableExplorer } from "@/components/TableExplorer";
-import { QueryTabs } from "@/components/QueryTabs";
-import { QueryTab } from "@/components/QueryTab";
+import { Explorer } from "@/components/Explorer";
+import { Editor } from "@/components/Editor";
 import { useAuth } from "@/contexts/AuthContext";
 import { useConfig } from "@/hooks/useConfig";
 import { useTables } from "@/hooks/useTables";
+import { useReports } from "@/hooks/useTables";
 import { useApi } from "@/hooks/useApi";
 import type { QueryResult } from "@/services/api/types";
 import { Button } from "@/components/ui/button";
 import { ConfigDialog } from "@/components/ConfigDialog";
-import { LogOut, RefreshCw } from "lucide-react";
+import { LogOut, RefreshCw, GripVertical } from "lucide-react";
 import {
     useTabPersistence,
     type PersistedTab,
 } from "@/hooks/useTabPersistence";
+import { useEditorStore } from "@/components/Editor/store/editorStore";
 
 const Index = () => {
     const { isAuthenticated, logout } = useAuth();
     const { config } = useConfig();
     const { tables, isLoading: isLoadingTables, refreshTables } = useTables();
-    const { executeQuery } = useApi();
-    const navigate = useNavigate();
-    const activeTabRef = useRef<{ execute: () => void }>(null);
-    // Use the tab persistence hook
     const {
-        tabs: persistedTabs,
-        activeTabId,
-        isLoaded: tabsLoaded,
-        editingTabId,
-        addTab,
-        updateTabContent,
-        updateTabTitle,
-        startEditingTab,
-        closeTab,
-        setActiveTab,
-        clearNonPinnedTabs,
-        immediateSave,
-    } = useTabPersistence();
+        reports,
+        isLoading: isLoadingReports,
+        refreshReports,
+    } = useReports();
+    const { executeQuery, updateReport } = useApi();
+    const navigate = useNavigate();
 
-    // Convert PersistedTab to Tab with React components
-    const tabs = persistedTabs.map((persistedTab) => ({
-        id: persistedTab.id,
-        title: persistedTab.title,
-        isPinned: persistedTab.isPinned,
-        content: (
-            <QueryTab
-                key={persistedTab.id}
-                ref={persistedTab.id === activeTabId ? activeTabRef : undefined}
-                onExecute={executeQuery}
-                sqlContent={persistedTab.sql}
-                onContentChange={(sql) =>
-                    updateTabContent(persistedTab.id, sql)
-                }
-                onSave={async (sql) => {
-                    await updateTabContent(persistedTab.id, sql);
-                    // Force immediate save when save button is clicked
-                    await immediateSave();
-                }}
-            />
-        ),
-    }));
+    // Use the editor store
+    const { createReportTab } = useEditorStore();
+
+    const [explorerWidth, setExplorerWidth] = useState(() => {
+        const saved = localStorage.getItem("explorerWidth");
+        return saved ? parseInt(saved, 10) : 320;
+    });
+    const isResizingRef = useRef(false);
+    const startXRef = useRef(0);
+    const startWidthRef = useRef(0);
+
+    const handleMouseDown = useCallback(
+        (e: React.MouseEvent) => {
+            isResizingRef.current = true;
+            startXRef.current = e.clientX;
+            startWidthRef.current = explorerWidth;
+            document.body.style.cursor = "col-resize";
+            document.body.style.userSelect = "none";
+        },
+        [explorerWidth]
+    );
+
+    const handleMouseMove = useCallback((e: MouseEvent) => {
+        if (!isResizingRef.current) return;
+
+        const deltaX = e.clientX - startXRef.current;
+        const newWidth = Math.max(
+            200,
+            Math.min(600, startWidthRef.current + deltaX)
+        );
+        setExplorerWidth(newWidth);
+        localStorage.setItem("explorerWidth", newWidth.toString());
+    }, []);
+
+    const handleMouseUp = useCallback(() => {
+        isResizingRef.current = false;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+    }, []);
+
+    useEffect(() => {
+        document.addEventListener("mousemove", handleMouseMove);
+        document.addEventListener("mouseup", handleMouseUp);
+        return () => {
+            document.removeEventListener("mousemove", handleMouseMove);
+            document.removeEventListener("mouseup", handleMouseUp);
+        };
+    }, [handleMouseMove, handleMouseUp]);
+
+    // The Editor component now handles all tab management internally
 
     // Check authentication on mount
     useEffect(() => {
@@ -70,17 +88,10 @@ const Index = () => {
         }
     }, [isAuthenticated, navigate]);
 
-    const handleNewTab = useCallback(async () => {
-        const newTabId = await addTab(`Query ${persistedTabs.length + 1}`);
-        setActiveTab(newTabId);
-    }, [persistedTabs.length, addTab, setActiveTab]);
-
-    const handleTabClose = useCallback(
-        async (tabId: string) => {
-            await closeTab(tabId);
-        },
-        [closeTab]
-    );
+    const handleNewTab = useCallback(() => {
+        // This will be handled by the Editor component
+        console.log("New tab requested");
+    }, []);
 
     const handleTableSelect = useCallback((tableName: string) => {
         // console.log("Table selected:", tableName);
@@ -93,26 +104,28 @@ const Index = () => {
         []
     );
 
-    const handleTabTitleEdit = useCallback(
-        async (tabId: string, newTitle: string) => {
-            await updateTabTitle(tabId, newTitle);
+    const handleReportSelect = useCallback(
+        (reportId: string) => {
+            // Find the report by ID
+            const report = reports
+                .flatMap((group) => group.reports)
+                .find((r) => r.id === reportId);
+            if (report) {
+                createReportTab({
+                    id: report.id,
+                    name: report.name,
+                    sql: report.sql,
+                });
+            }
         },
-        [updateTabTitle]
+        [reports, createReportTab]
     );
 
-    // Authentication is now handled by ProtectedRoute component
+    const handleRefresh = useCallback(async () => {
+        await Promise.all([refreshTables(), refreshReports()]);
+    }, [refreshTables, refreshReports]);
 
-    // Show loading state while IndexedDB is initializing
-    if (!tabsLoaded) {
-        return (
-            <div className="h-screen flex items-center justify-center bg-background text-foreground">
-                <div className="flex items-center gap-2">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                    <span>Loading tabs...</span>
-                </div>
-            </div>
-        );
-    }
+    // Authentication is now handled by ProtectedRoute component
 
     return (
         <div className="h-screen flex bg-background text-foreground">
@@ -142,36 +155,36 @@ const Index = () => {
             </div>
 
             {/* Sidebar */}
-            <div className="w-80 flex-shrink-0 mt-12">
-                <TableExplorer
+            <div
+                className="flex-shrink-0 mt-12 relative"
+                style={{ width: `${explorerWidth}px` }}
+            >
+                <Explorer
                     tables={tables}
+                    reports={reports}
                     onTableSelect={handleTableSelect}
                     onColumnSelect={handleColumnSelect}
-                    onRefresh={refreshTables}
-                    isLoading={isLoadingTables}
+                    onReportSelect={handleReportSelect}
+                    onRefresh={handleRefresh}
+                    isLoading={isLoadingTables || isLoadingReports}
                 />
+            </div>
+
+            {/* Resizable Splitter */}
+            <div
+                className="w-px bg-border cursor-col-resize flex-shrink-0 mt-12 relative flex items-center justify-center"
+                onMouseDown={handleMouseDown}
+                title="Drag to resize Explorer"
+            >
+                {/* Always visible handle - matches ResizableHandle exactly */}
+                <div className="z-10 flex h-4 w-3 items-center justify-center rounded-sm border bg-border">
+                    <GripVertical className="h-2.5 w-2.5 text-foreground" />
+                </div>
             </div>
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col min-w-0 mt-12">
-                <QueryTabs
-                    tabs={tabs}
-                    activeTabId={activeTabId}
-                    editingTabId={editingTabId}
-                    onTabChange={setActiveTab}
-                    onTabClose={handleTabClose}
-                    onCloseAllTabs={clearNonPinnedTabs}
-                    onNewTab={handleNewTab}
-                    onTabTitleEdit={handleTabTitleEdit}
-                    onStartEditing={startEditingTab}
-                    onExecute={() => {
-                        // Execute the query for the active tab
-                        if (activeTabRef.current) {
-                            activeTabRef.current.execute();
-                        }
-                    }}
-                    readOnly={false}
-                />
+                <Editor />
             </div>
         </div>
     );
