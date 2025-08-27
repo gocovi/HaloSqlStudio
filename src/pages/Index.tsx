@@ -1,11 +1,13 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { TableExplorer } from "@/components/TableExplorer";
 import { QueryTabs } from "@/components/QueryTabs";
 import { QueryTab } from "@/components/QueryTab";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTables } from "@/contexts/TablesContext";
-import { haloApiService, QueryResult } from "@/lib/halo-api";
+import { useConfig } from "@/hooks/useConfig";
+import { useTables } from "@/hooks/useTables";
+import { useApi } from "@/hooks/useApi";
+import type { QueryResult } from "@/services/api/types";
 import { Button } from "@/components/ui/button";
 import { ConfigDialog } from "@/components/ConfigDialog";
 import { LogOut, RefreshCw } from "lucide-react";
@@ -14,23 +16,13 @@ import {
     type PersistedTab,
 } from "@/hooks/useTabPersistence";
 
-// Remove mock data - will be replaced with real API calls
-
-// Real query execution using Halo API
-const executeQuery = async (sql: string): Promise<QueryResult> => {
-    try {
-        return await haloApiService.executeQuery(sql);
-    } catch (error) {
-        console.error("Query execution error:", error);
-        throw error;
-    }
-};
-
 const Index = () => {
-    const { isAuthenticated, logout, config } = useAuth();
+    const { isAuthenticated, logout } = useAuth();
+    const { config } = useConfig();
     const { tables, isLoading: isLoadingTables, refreshTables } = useTables();
+    const { executeQuery } = useApi();
     const navigate = useNavigate();
-
+    const activeTabRef = useRef<{ execute: () => void }>(null);
     // Use the tab persistence hook
     const {
         tabs: persistedTabs,
@@ -55,6 +47,7 @@ const Index = () => {
         content: (
             <QueryTab
                 key={persistedTab.id}
+                ref={persistedTab.id === activeTabId ? activeTabRef : undefined}
                 onExecute={executeQuery}
                 sqlContent={persistedTab.sql}
                 onContentChange={(sql) =>
@@ -90,12 +83,12 @@ const Index = () => {
     );
 
     const handleTableSelect = useCallback((tableName: string) => {
-        console.log("Table selected:", tableName);
+        // console.log("Table selected:", tableName);
     }, []);
 
     const handleColumnSelect = useCallback(
         (tableName: string, columnName: string) => {
-            console.log("Column selected:", tableName, columnName);
+            // console.log("Column selected:", tableName, columnName);
         },
         []
     );
@@ -134,8 +127,9 @@ const Index = () => {
                             .replace("http://", "")}
                     </span>
                 </div>
-                <div className="flex items-center gap-0">
+                <div className="flex items-center gap-2">
                     <ConfigDialog />
+
                     <Button
                         variant="outline"
                         size="sm"
@@ -170,6 +164,13 @@ const Index = () => {
                     onNewTab={handleNewTab}
                     onTabTitleEdit={handleTabTitleEdit}
                     onStartEditing={startEditingTab}
+                    onExecute={() => {
+                        // Execute the query for the active tab
+                        if (activeTabRef.current) {
+                            activeTabRef.current.execute();
+                        }
+                    }}
+                    readOnly={false}
                 />
             </div>
         </div>

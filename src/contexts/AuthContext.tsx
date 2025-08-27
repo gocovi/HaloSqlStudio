@@ -5,24 +5,18 @@ import React, {
     useState,
     ReactNode,
 } from "react";
-import { haloAuthService, HaloUser } from "@/lib/halo-auth";
-import {
-    getHaloConfig,
-    saveHaloConfig,
-    initializeConfig,
-    HaloConfig,
-} from "@/lib/halo-config";
+import { useNavigate } from "react-router-dom";
+import type { HaloUser } from "@/services/auth/types";
+import * as authService from "@/services/auth/authService";
+import { useConfig } from "@/hooks/useConfig";
 
 interface AuthContextType {
     isAuthenticated: boolean;
     user: HaloUser | null;
-    config: HaloConfig;
-    login: () => Promise<void>;
-    logout: () => void;
-    updateConfig: (config: Partial<HaloConfig>) => void;
-    refreshAuth: () => void;
-    handleAuthError: () => void;
     isLoading: boolean;
+    startAuth: () => Promise<void>;
+    logout: () => void;
+    handleCallback: (code: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,73 +36,91 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [user, setUser] = useState<HaloUser | null>(null);
-    const [config, setConfig] = useState<HaloConfig>(initializeConfig());
     const [isLoading, setIsLoading] = useState(true);
+    const navigate = useNavigate();
+    const { config, isLoaded } = useConfig();
 
+    // Check authentication status when config is loaded
     useEffect(() => {
-        // Check authentication status on mount
-        const checkAuth = () => {
-            const authenticated = haloAuthService.isAuthenticated();
+        if (!isLoaded) return;
 
+        const checkAuth = () => {
+            const authenticated = authService.isAuthenticated();
             setIsAuthenticated(authenticated);
+
             if (authenticated) {
-                setUser(haloAuthService.getCurrentUser());
+                const currentUser = authService.getCurrentUser();
+                setUser(currentUser);
+            } else {
+                setUser(null);
             }
+
             setIsLoading(false);
         };
 
         checkAuth();
-    }, []);
+    }, [isLoaded]);
 
-    const login = async () => {
-        setIsLoading(true);
+    const startAuth = async () => {
         try {
-            await haloAuthService.startAuth();
+            authService.startAuth({
+                authServer: config.authServer,
+                clientId: config.clientId,
+                redirectUri: config.redirectUri,
+            });
         } catch (error) {
-            console.error("Login error:", error);
+            console.error("Failed to start auth:", error);
+            throw error;
+        }
+    };
+
+    const handleCallback = async (code: string): Promise<boolean> => {
+        try {
+            setIsLoading(true);
+
+            const success = await authService.handleCallback(
+                {
+                    authServer: config.authServer,
+                    clientId: config.clientId,
+                    redirectUri: config.redirectUri,
+                },
+                code
+            );
+
+            if (success) {
+                // Re-check authentication status
+                const authenticated = authService.isAuthenticated();
+                setIsAuthenticated(authenticated);
+
+                if (authenticated) {
+                    const currentUser = authService.getCurrentUser();
+                    setUser(currentUser);
+                }
+            }
+
             setIsLoading(false);
+            return success;
+        } catch (error) {
+            console.error("Failed to handle auth callback:", error);
+            setIsLoading(false);
+            return false;
         }
     };
 
     const logout = () => {
-        haloAuthService.logout();
-        setIsAuthenticated(false);
+        authService.logout();
         setUser(null);
-    };
-
-    const updateConfig = (newConfig: Partial<HaloConfig>) => {
-        const updated = { ...config, ...newConfig };
-        saveHaloConfig(updated);
-        setConfig(updated);
-    };
-
-    const refreshAuth = () => {
-        const authenticated = haloAuthService.isAuthenticated();
-        console.log(
-            "AuthContext: refreshAuth called, isAuthenticated:",
-            authenticated
-        );
-        setIsAuthenticated(authenticated);
-        if (authenticated) {
-            setUser(haloAuthService.getCurrentUser());
-        }
-    };
-
-    const handleAuthError = () => {
-        console.error("Authentication error detected. Logging out.");
-        logout();
+        setIsAuthenticated(false);
+        navigate("/login");
     };
 
     const value: AuthContextType = {
         isAuthenticated,
         user,
-        config,
-        login,
-        logout,
-        updateConfig,
-        refreshAuth,
-        handleAuthError,
         isLoading,
+        startAuth,
+        logout,
+        handleCallback,
     };
 
     return (

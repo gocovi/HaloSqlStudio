@@ -11,11 +11,11 @@ import {
 } from "@/components/ui/dialog";
 import { Settings, Save, Eye, EyeOff } from "lucide-react";
 import { ConfigValidation } from "./ConfigValidation";
-import { useAuth } from "@/contexts/AuthContext";
-import { HaloConfig } from "@/lib/halo-config";
+import { useConfig } from "@/hooks/useConfig";
+import type { HaloConfig } from "@/hooks/useConfig";
 
 export const ConfigDialog: React.FC = () => {
-    const { config, updateConfig } = useAuth();
+    const { config, saveConfig } = useConfig();
     const [isOpen, setIsOpen] = useState(false);
     const [localConfig, setLocalConfig] = useState<HaloConfig>(config);
     const [showClientSecret, setShowClientSecret] = useState(false);
@@ -26,7 +26,7 @@ export const ConfigDialog: React.FC = () => {
     }, [config]);
 
     const handleSave = () => {
-        updateConfig(localConfig);
+        saveConfig(localConfig);
         setIsOpen(false);
     };
 
@@ -48,7 +48,6 @@ export const ConfigDialog: React.FC = () => {
                     title="Configure"
                 >
                     <Settings className="h-4 w-4 mr-2" />
-                    Configure
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">

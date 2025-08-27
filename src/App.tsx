@@ -3,9 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { TablesProvider } from "@/contexts/TablesContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AuthProvider } from "./contexts/AuthContext";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import AuthCallback from "./pages/AuthCallback";
@@ -23,26 +22,11 @@ class ErrorBoundary extends React.Component<
     }
 
     static getDerivedStateFromError(error: Error) {
-        // If it's an HMR-related error, don't show the error UI
-        if (
-            error.message.includes(
-                "useAuth must be used within an AuthProvider"
-            )
-        ) {
-            return { hasError: false };
-        }
         return { hasError: true };
     }
 
     componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-        // Only log non-HMR errors
-        if (
-            !error.message.includes(
-                "useAuth must be used within an AuthProvider"
-            )
-        ) {
-            console.error("Error caught by boundary:", error, errorInfo);
-        }
+        console.error("Error caught by boundary:", error, errorInfo);
     }
 
     render() {
@@ -79,29 +63,27 @@ const App = () => (
             <TooltipProvider>
                 <Toaster />
                 <Sonner />
-                <AuthProvider>
-                    <TablesProvider>
-                        <BrowserRouter>
-                            <Routes>
-                                <Route
-                                    path="/"
-                                    element={
-                                        <ProtectedRoute>
-                                            <Index />
-                                        </ProtectedRoute>
-                                    }
-                                />
-                                <Route path="/login" element={<Login />} />
-                                <Route
-                                    path="/auth/callback"
-                                    element={<AuthCallback />}
-                                />
-                                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                                <Route path="*" element={<NotFound />} />
-                            </Routes>
-                        </BrowserRouter>
-                    </TablesProvider>
-                </AuthProvider>
+                <BrowserRouter>
+                    <AuthProvider>
+                        <Routes>
+                            <Route
+                                path="/"
+                                element={
+                                    <ProtectedRoute>
+                                        <Index />
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route path="/login" element={<Login />} />
+                            <Route
+                                path="/auth/callback"
+                                element={<AuthCallback />}
+                            />
+                            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                            <Route path="*" element={<NotFound />} />
+                        </Routes>
+                    </AuthProvider>
+                </BrowserRouter>
             </TooltipProvider>
         </QueryClientProvider>
     </ErrorBoundary>

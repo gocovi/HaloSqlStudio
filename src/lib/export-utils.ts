@@ -1,4 +1,4 @@
-import type { QueryResult } from "./halo-api";
+import type { QueryResult } from "@/services/api/types";
 
 /**
  * Export query results to JSON format

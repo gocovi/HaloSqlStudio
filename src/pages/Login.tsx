@@ -10,10 +10,12 @@ import {
 } from "@/components/ui/card";
 import { ConfigDialog } from "@/components/ConfigDialog";
 import { useAuth } from "@/contexts/AuthContext";
+import { useConfig } from "@/hooks/useConfig";
 import { Database, Shield, Zap } from "lucide-react";
 
 const Login: React.FC = () => {
-    const { login, config, isLoading, isAuthenticated } = useAuth();
+    const { startAuth, isLoading, isAuthenticated } = useAuth();
+    const { config } = useConfig();
 
     // Redirect to main app if already authenticated
     if (isAuthenticated) {
@@ -25,7 +27,7 @@ const Login: React.FC = () => {
             alert("Please configure your Client ID first");
             return;
         }
-        await login();
+        await startAuth();
     };
 
     const isConfigured = config.clientId && config.clientId.trim() !== "";

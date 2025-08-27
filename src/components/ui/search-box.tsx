@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X, Loader2 } from "lucide-react";
 import { Input } from "./input";
 import { Button } from "./button";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,7 @@ interface SearchBoxProps {
     disabled?: boolean;
     size?: "sm" | "md" | "lg";
     enableKeyboardShortcut?: boolean;
+    loading?: boolean;
 }
 
 export function SearchBox({
@@ -38,6 +39,7 @@ export function SearchBox({
     disabled = false,
     size = "md",
     enableKeyboardShortcut = true,
+    loading = false,
 }: SearchBoxProps) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [inputValue, setInputValue] = useState(value);
@@ -126,12 +128,32 @@ export function SearchBox({
 
     return (
         <div className={cn("relative", className)}>
-            <Search
+            <div
                 className={cn(
-                    "absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground",
-                    iconSizes[size]
+                    "absolute left-2 top-1/2 transform -translate-y-1/2 flex items-center justify-center",
+                    size === "sm"
+                        ? "w-3 h-3"
+                        : size === "md"
+                        ? "w-4 h-4"
+                        : "w-4 h-4"
                 )}
-            />
+            >
+                {loading ? (
+                    <Loader2
+                        className={cn(
+                            "text-muted-foreground animate-spin m-0 p-0",
+                            iconSizes[size]
+                        )}
+                    />
+                ) : (
+                    <Search
+                        className={cn(
+                            "text-muted-foreground m-0 p-0",
+                            iconSizes[size]
+                        )}
+                    />
+                )}
+            </div>
             <Input
                 ref={inputRef}
                 type="text"

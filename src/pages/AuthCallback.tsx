@@ -1,152 +1,72 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate, useSearchParams, Navigate } from "react-router-dom";
-import { haloAuthService } from "@/lib/halo-auth";
-import { useAuth } from "@/contexts/AuthContext";
-import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, CheckCircle, XCircle } from "lucide-react";
+import React, { useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Loader2 } from "lucide-react";
+import * as authService from "@/services/auth/authService";
 
 const AuthCallback: React.FC = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { refreshAuth, isAuthenticated } = useAuth();
-    const [status, setStatus] = useState<"loading" | "success" | "error">(
-        "loading"
-    );
-    const [errorMessage, setErrorMessage] = useState<string>("");
-    const [shouldRedirect, setShouldRedirect] = useState(false);
 
     useEffect(() => {
-        // If already authenticated, set redirect flag
-        if (isAuthenticated) {
-            setShouldRedirect(true);
-            return;
-        }
-
-        const handleCallback = async () => {
+        const processCallback = async () => {
             const code = searchParams.get("code");
             const error = searchParams.get("error");
 
             if (error) {
-                setStatus("error");
-                setErrorMessage(error);
+                console.error("OAuth error:", error);
+                navigate("/login?error=" + encodeURIComponent(error), {
+                    replace: true,
+                });
                 return;
             }
 
             if (!code) {
-                setStatus("error");
-                setErrorMessage("No authorization code received");
+                console.error("No authorization code received");
+                navigate("/login?error=no_code", { replace: true });
                 return;
             }
 
             try {
-                const success = await haloAuthService.handleCallback(code);
+                // Get config directly from localStorage - no React state dependencies
+                const stored = localStorage.getItem("halo-config");
+                if (!stored) {
+                    console.error("No configuration found");
+                    navigate("/login?error=no_config", { replace: true });
+                    return;
+                }
+
+                const config = JSON.parse(stored);
+
+                // Call authService directly with the config
+                const success = await authService.handleCallback(config, code);
                 if (success) {
-                    setStatus("success");
-                    // Refresh authentication state and redirect
-                    refreshAuth();
-                    setTimeout(() => {
-                        navigate("/", { replace: true });
-                    }, 2000);
+                    // Redirect to main app on success
+                    navigate("/", { replace: true });
                 } else {
-                    setStatus("error");
-                    setErrorMessage("Failed to complete authentication");
+                    // Redirect to login on failure
+                    navigate("/login?error=auth_failed", { replace: true });
                 }
             } catch (error) {
-                setStatus("error");
-                setErrorMessage(
-                    error instanceof Error
-                        ? error.message
-                        : "Authentication failed"
-                );
+                console.error("Authentication failed:", error);
+                navigate("/login?error=auth_failed", { replace: true });
             }
         };
 
-        handleCallback();
-    }, [searchParams, navigate, isAuthenticated, refreshAuth]);
+        // Only process once
+        processCallback();
+    }, []); // Empty dependency array - only runs once
 
-    // Handle redirect after authentication
-    useEffect(() => {
-        if (shouldRedirect) {
-            navigate("/", { replace: true });
-        }
-    }, [shouldRedirect, navigate]);
-
-    const handleRetry = () => {
-        navigate("/", { replace: true });
-    };
-
-    // If already authenticated, show loading while redirecting
-    if (shouldRedirect) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-background">
-                <div className="text-center">
-                    <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
-                    <h1 className="text-2xl font-semibold mb-2">
-                        Redirecting...
-                    </h1>
-                    <p className="text-muted-foreground">
-                        You are already authenticated, redirecting to the main
-                        application...
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
-    if (status === "loading") {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-background">
-                <div className="text-center">
-                    <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
-                    <h1 className="text-2xl font-semibold mb-2">
-                        Completing Authentication
-                    </h1>
-                    <p className="text-muted-foreground">
-                        Please wait while we complete your login...
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
-    if (status === "success") {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-background">
-                <div className="text-center">
-                    <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                    <h1 className="text-2xl font-semibold mb-2">
-                        Authentication Successful!
-                    </h1>
-                    <p className="text-muted-foreground mb-4">
-                        You will be redirected to the main application shortly.
-                    </p>
-                    <Button onClick={() => navigate("/", { replace: true })}>
-                        Continue Now
-                    </Button>
-                </div>
-            </div>
-        );
-    }
-
+    // Show loading while processing
     return (
         <div className="min-h-screen flex items-center justify-center bg-background">
-            <div className="text-center max-w-md">
-                <XCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <div className="text-center">
+                <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
                 <h1 className="text-2xl font-semibold mb-2">
-                    Authentication Failed
+                    Completing Authentication
                 </h1>
-                <Alert className="mb-4">
-                    <AlertDescription>{errorMessage}</AlertDescription>
-                </Alert>
-                <div className="space-x-2">
-                    <Button onClick={handleRetry} variant="outline">
-                        Try Again
-                    </Button>
-                    <Button onClick={() => navigate("/", { replace: true })}>
-                        Go Back
-                    </Button>
-                </div>
+                <p className="text-muted-foreground">
+                    Please wait while we complete your login...
+                </p>
             </div>
         </div>
     );

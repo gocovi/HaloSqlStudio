@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { X, Plus, Terminal, MoreHorizontal } from "lucide-react";
+import { X, Plus, Terminal, MoreHorizontal, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -28,6 +28,8 @@ interface QueryTabsProps {
     onNewTab: () => void;
     onTabTitleEdit?: (tabId: string, newTitle: string) => void;
     onStartEditing?: (tabId: string) => void;
+    onExecute?: () => void;
+    readOnly?: boolean;
 }
 
 export function QueryTabs({
@@ -40,6 +42,8 @@ export function QueryTabs({
     onNewTab,
     onTabTitleEdit,
     onStartEditing,
+    onExecute,
+    readOnly = false,
 }: QueryTabsProps) {
     const [editingTitle, setEditingTitle] = useState("");
 
@@ -75,6 +79,24 @@ export function QueryTabs({
         <div className="flex flex-col h-full">
             {/* Tab Bar */}
             <div className="flex items-center bg-card border-b border-border">
+                {/* Execute button - positioned to the left of tabs */}
+                {onExecute && (
+                    <div className="flex items-center border-r border-border">
+                        <button
+                            onClick={onExecute}
+                            disabled={readOnly}
+                            className="flex items-center justify-center h-8 w-8 rounded hover:bg-accent/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            title={
+                                readOnly
+                                    ? "Cannot execute in read-only mode"
+                                    : "Execute query (Ctrl+Enter)"
+                            }
+                        >
+                            <Play className="h-5 w-5 text-green-500" />
+                        </button>
+                    </div>
+                )}
+
                 <div className="flex overflow-x-auto scrollbar-thin">
                     {tabs.map((tab) => (
                         <div

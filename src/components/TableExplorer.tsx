@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
     ChevronRight,
     ChevronDown,
@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchBox } from "@/components/ui/search-box";
-import { TableInfo } from "@/lib/halo-api";
+import type { TableInfo } from "@/services/api/types";
 
 interface TableExplorerProps {
     tables: TableInfo[];
@@ -41,14 +41,41 @@ export function TableExplorer({
         setExpandedTables(newExpanded);
     };
 
-    const filteredTables = tables.filter((table) => {
-        if (!searchQuery) return true;
+    // Simple search that filters tables and columns by search term
+    const filteredTables = useMemo(() => {
+        if (!searchQuery.trim()) {
+            return tables;
+        }
+
         const query = searchQuery.toLowerCase();
-        return (
-            table.name.toLowerCase().includes(query) ||
-            table.columns.some((col) => col.name.toLowerCase().includes(query))
-        );
-    });
+
+        return tables
+            .filter((table) => {
+                // Check if table name matches
+                const tableMatches = table.name.toLowerCase().includes(query);
+
+                // Check if any columns match
+                const hasMatchingColumns = table.columns.some(
+                    (col) =>
+                        col.name.toLowerCase().includes(query) ||
+                        col.data_type.toLowerCase().includes(query)
+                );
+
+                return tableMatches || hasMatchingColumns;
+            })
+            .map((table) => {
+                // If searching, filter columns to only show matching ones
+                if (searchQuery.trim()) {
+                    const filteredColumns = table.columns.filter(
+                        (col) =>
+                            col.name.toLowerCase().includes(query) ||
+                            col.data_type.toLowerCase().includes(query)
+                    );
+                    return { ...table, columns: filteredColumns };
+                }
+                return table;
+            });
+    }, [tables, searchQuery]);
 
     return (
         <div className="flex flex-col h-full bg-background border-r border-border">
@@ -63,7 +90,7 @@ export function TableExplorer({
 
                 {/* Search */}
                 <SearchBox
-                    placeholder="Search tables & columns... (Ctrl+F)"
+                    placeholder="Search"
                     value={searchQuery}
                     onChange={setSearchQuery}
                     size="sm"
