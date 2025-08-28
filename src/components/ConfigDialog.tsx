@@ -65,7 +65,7 @@ export const ConfigDialog: React.FC = () => {
                             onChange={(e) =>
                                 handleInputChange("authServer", e.target.value)
                             }
-                            placeholder="https://gocovi.halopsa.com/auth"
+                            placeholder="https://mymsp.gocovi.com/auth"
                             className="col-span-3"
                         />
                     </div>
@@ -83,7 +83,7 @@ export const ConfigDialog: React.FC = () => {
                                     e.target.value
                                 )
                             }
-                            placeholder="https://gocovi.halopsa.com"
+                            placeholder="https://mymsp.gocovi.com"
                             className="col-span-3"
                         />
                     </div>

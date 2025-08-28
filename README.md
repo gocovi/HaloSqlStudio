@@ -18,7 +18,7 @@ A local-first SQL query tool for Halo PSA that connects via OAuth and allows you
 
 1. Log into your Halo PSA instance
 2. Go to **Config > Integrations > Halo API**
-3. Note your **Authentication Server URL** (e.g., `https://gocovi.halopsa.com/auth`)
+3. Note your **Authentication Server URL** (e.g., `https://mymsp.gocovi.com/auth`)
 4. Create a new OAuth application with:
     - **Redirect URI**: `http://localhost:5173/auth/callback` (for development)
     - **Scopes**: `all offline_access`
@@ -29,8 +29,8 @@ A local-first SQL query tool for Halo PSA that connects via OAuth and allows you
 1. Start the application
 2. Click **Configure** to open the settings dialog
 3. Enter your Halo configuration:
-    - **Auth Server**: Your authentication server URL (e.g., `https://gocovi.halopsa.com/auth`)
-    - **Resource Server**: Your base server URL (e.g., `https://gocovi.halopsa.com`)
+    - **Auth Server**: Your authentication server URL (e.g., `https://mymsp.gocovi.com/auth`)
+    - **Resource Server**: Your base server URL (e.g., `https://mymsp.gocovi.com`)
     - **Client ID**: The OAuth client ID from step 1
     - **Redirect URI**: Automatically set to your current URL + `/auth/callback`
 
