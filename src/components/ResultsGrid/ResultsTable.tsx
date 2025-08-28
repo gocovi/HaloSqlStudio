@@ -188,47 +188,7 @@ export const ResultsTable = forwardRef<HTMLDivElement, ResultsTableProps>(
                         </TableBody>
                     </Table>
 
-                    {/* Copy buttons positioned absolutely over table rows */}
-                    {(() => {
-                        if (!result?.rows || !result?.columns) return null;
-
-                        return displayRows.map((row, rowIndex) => {
-                            const originalRowIndex = result.rows.indexOf(row);
-                            return (
-                                <div
-                                    key={`copy-${originalRowIndex}`}
-                                    className="absolute opacity-0 hover:opacity-100 transition-opacity pointer-events-none"
-                                    style={{
-                                        top: `${
-                                            (originalRowIndex + 1) * 32 + 40
-                                        }px`,
-                                        right: "8px",
-                                    }}
-                                >
-                                    <div className="pointer-events-auto">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() =>
-                                                handleCopyRow(
-                                                    row,
-                                                    result.columns
-                                                )
-                                            }
-                                            className="h-6 w-6 p-0 bg-background/80 backdrop-blur-sm"
-                                            title="Copy row to clipboard"
-                                        >
-                                            {copiedRowIndex === rowIndex ? (
-                                                <Check className="h-3 w-3 text-green-600" />
-                                            ) : (
-                                                <Copy className="h-3 w-3" />
-                                            )}
-                                        </Button>
-                                    </div>
-                                </div>
-                            );
-                        });
-                    })()}
+                    {/* Copy buttons now handled inline in table rows for better performance */}
                 </div>
             </div>
         );
@@ -354,6 +314,28 @@ const MemoizedTableRow = memo(
                                             title="Copy to clipboard"
                                         >
                                             {isCopied ? (
+                                                <Check className="h-3 w-3 text-green-600" />
+                                            ) : (
+                                                <Copy className="h-3 w-3" />
+                                            )}
+                                        </Button>
+                                    </div>
+                                )}
+
+                                {/* Row copy button - only show in first column */}
+                                {cellIndex === 0 && (
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onCopyRow(row, columns);
+                                            }}
+                                            className="h-6 w-6 p-0 bg-background/90 hover:bg-background border shadow-sm"
+                                            title="Copy entire row to clipboard"
+                                        >
+                                            {copiedRowIndex === rowIndex ? (
                                                 <Check className="h-3 w-3 text-green-600" />
                                             ) : (
                                                 <Copy className="h-3 w-3" />
