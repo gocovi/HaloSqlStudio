@@ -47,7 +47,10 @@ interface EditorState {
     updateTabContent: (tabId: string, sql: string) => void;
 
     // Query execution actions
-    executeQuery: (tabId: string, executeQueryFn: (sql: string) => Promise<QueryResult>) => Promise<void>;
+    executeQuery: (
+        tabId: string,
+        executeQueryFn: (sql: string) => Promise<QueryResult>
+    ) => Promise<void>;
     clearQueryResult: (tabId: string) => void;
 
     // Utility
@@ -202,7 +205,12 @@ export const useEditorStore = create<EditorState>()(
                 set((state) => ({
                     tabs: state.tabs.map((t) =>
                         t.id === tabId
-                            ? { ...t, isExecuting: true, queryResult: null, queryError: null }
+                            ? {
+                                  ...t,
+                                  isExecuting: true,
+                                  queryResult: null,
+                                  queryError: null,
+                              }
                             : t
                     ),
                 }));
@@ -212,7 +220,11 @@ export const useEditorStore = create<EditorState>()(
                     set((state) => ({
                         tabs: state.tabs.map((t) =>
                             t.id === tabId
-                                ? { ...t, queryResult: result, isExecuting: false }
+                                ? {
+                                      ...t,
+                                      queryResult: result,
+                                      isExecuting: false,
+                                  }
                                 : t
                         ),
                     }));
@@ -220,7 +232,11 @@ export const useEditorStore = create<EditorState>()(
                     set((state) => ({
                         tabs: state.tabs.map((t) =>
                             t.id === tabId
-                                ? { ...t, queryError: error.message, isExecuting: false }
+                                ? {
+                                      ...t,
+                                      queryError: error.message,
+                                      isExecuting: false,
+                                  }
                                 : t
                         ),
                     }));

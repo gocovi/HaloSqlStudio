@@ -337,30 +337,28 @@ const MemoizedTableRow = memo(
                                 )}
 
                                 {/* Copy icon overlay */}
-                                {sortConfig?.key === column.name && (
-                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/cell:opacity-100 transition-opacity">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onCopyCell(
-                                                    cellValue,
-                                                    rowIndex,
-                                                    cellIndex
-                                                );
-                                            }}
-                                            className="h-6 w-6 p-0 bg-background/90 hover:bg-background border shadow-sm"
-                                            title="Copy to clipboard"
-                                        >
-                                            {isCopied ? (
-                                                <Check className="h-3 w-3 text-green-600" />
-                                            ) : (
-                                                <Copy className="h-3 w-3" />
-                                            )}
-                                        </Button>
-                                    </div>
-                                )}
+                                <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/cell:opacity-100 transition-opacity">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onCopyCell(
+                                                cellValue,
+                                                rowIndex,
+                                                cellIndex
+                                            );
+                                        }}
+                                        className="h-6 w-6 p-0 bg-background/90 hover:bg-background border shadow-sm"
+                                        title="Copy to clipboard"
+                                    >
+                                        {isCopied ? (
+                                            <Check className="h-3 w-3 text-green-600" />
+                                        ) : (
+                                            <Copy className="h-3 w-3" />
+                                        )}
+                                    </Button>
+                                </div>
                             </div>
                         </TableCell>
                     );

@@ -95,7 +95,10 @@ export function Tabs() {
             } catch (error) {
                 toast({
                     title: "Execution failed",
-                    description: error instanceof Error ? error.message : "Failed to execute query.",
+                    description:
+                        error instanceof Error
+                            ? error.message
+                            : "Failed to execute query.",
                     variant: "destructive",
                 });
             }
@@ -275,17 +278,27 @@ export function Tabs() {
                 {activeTab && <ReportTab key={activeTab.id} tab={activeTab} />}
             </div>
 
-            <AlertDialog open={showSaveConfirm} onOpenChange={setShowSaveConfirm}>
+            <AlertDialog
+                open={showSaveConfirm}
+                onOpenChange={setShowSaveConfirm}
+            >
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                                 <AlertDialogDescription>
-                             This action cannot be undone. This will permanently save your report changes.
-                         </AlertDialogDescription>
-                     </AlertDialogHeader>
-                     <AlertDialogFooter>
-                         <AlertDialogCancel onClick={handleSaveCancel}>Cancel</AlertDialogCancel>
-                         <AlertDialogAction onClick={handleSaveConfirm}>Save changes</AlertDialogAction>
+                        <AlertDialogTitle>
+                            Are you absolutely sure?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently
+                            save your report changes.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={handleSaveCancel}>
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction onClick={handleSaveConfirm}>
+                            Save changes
+                        </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
