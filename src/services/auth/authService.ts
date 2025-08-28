@@ -3,6 +3,17 @@ import type { HaloTokens, HaloUser, AuthConfig } from "./types";
 // Token storage keys
 const TOKEN_STORAGE_KEY = "halo-tokens";
 
+// Track processed authorization codes to prevent duplicates
+const processedCodes = new Set<string>();
+
+// Clean up old processed codes periodically (every 5 minutes)
+setInterval(() => {
+    if (processedCodes.size > 100) {
+        console.log("Cleaning up processed authorization codes");
+        processedCodes.clear();
+    }
+}, 5 * 60 * 1000);
+
 export function loadTokens(): HaloTokens | null {
     try {
         const stored = localStorage.getItem(TOKEN_STORAGE_KEY);
@@ -22,6 +33,10 @@ export function saveTokens(tokens: HaloTokens): void {
 
 export function clearTokens(): void {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
+}
+
+export function clearProcessedCodes(): void {
+    processedCodes.clear();
 }
 
 export function getCurrentUser(): HaloUser | null {
@@ -56,7 +71,7 @@ export function startAuth(config: AuthConfig): void {
     const params = new URLSearchParams({
         client_id: config.clientId,
         response_type: "code",
-        scope: "all offline_access",
+        scope: "read:reporting edit:reporting offline_access",
         redirect_uri: config.redirectUri,
     });
 
@@ -69,6 +84,18 @@ export async function handleCallback(
     code: string
 ): Promise<boolean> {
     try {
+        // Check if this code has already been processed
+        if (processedCodes.has(code)) {
+            console.warn(
+                "Authorization code already processed, skipping:",
+                code
+            );
+            return false;
+        }
+
+        // Mark this code as being processed
+        processedCodes.add(code);
+
         // Validate required fields
         if (!config.authServer || !config.clientId || !config.redirectUri) {
             throw new Error(
@@ -81,7 +108,7 @@ export async function handleCallback(
             client_id: config.clientId,
             redirect_uri: config.redirectUri,
             code: code,
-            scope: "all offline_access",
+            scope: "read:reporting edit:reporting offline_access",
         });
 
         const tokenResponse = await fetch(`${config.authServer}/token`, {
@@ -126,8 +153,6 @@ export async function refreshToken(config: AuthConfig): Promise<boolean> {
             return false;
         }
 
-        console.log("Refreshing token");
-        console.log("tokens", tokens);
         const response = await fetch(`${config.authServer}/token`, {
             method: "POST",
             headers: {
@@ -137,7 +162,7 @@ export async function refreshToken(config: AuthConfig): Promise<boolean> {
                 grant_type: "refresh_token",
                 client_id: config.clientId,
                 refresh_token: tokens.refresh_token,
-                scope: "all offline_access",
+                scope: "read:reporting edit:reporting offline_access",
             }),
         });
 
@@ -169,6 +194,8 @@ export async function refreshToken(config: AuthConfig): Promise<boolean> {
 
 export function logout(): void {
     clearTokens();
+    // Clear processed codes on logout
+    processedCodes.clear();
     // Redirect to login page
     if (window.location.pathname !== "/login") {
         window.location.href = "/login";

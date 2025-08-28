@@ -15,7 +15,7 @@ import { Database, Shield, Zap } from "lucide-react";
 
 const Login: React.FC = () => {
     const { startAuth, isLoading, isAuthenticated } = useAuth();
-    const { config } = useConfig();
+    const { config, isLoaded, isConfigured } = useConfig();
 
     // Redirect to main app if already authenticated
     if (isAuthenticated) {
@@ -29,8 +29,6 @@ const Login: React.FC = () => {
         }
         await startAuth();
     };
-
-    const isConfigured = config.clientId && config.clientId.trim() !== "";
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -57,11 +55,11 @@ const Login: React.FC = () => {
                             </div>
                             <div className="flex items-center gap-2">
                                 <Database className="h-4 w-4" />
-                                Browse tables and columns
+                                Execute SQL queries
                             </div>
                             <div className="flex items-center gap-2">
                                 <Zap className="h-4 w-4" />
-                                Execute SQL queries
+                                Browse tables and columns
                             </div>
                         </div>
                     </div>
@@ -69,7 +67,7 @@ const Login: React.FC = () => {
                     <div className="space-y-3">
                         <ConfigDialog />
 
-                        {isConfigured && (
+                        {isLoaded && isConfigured && (
                             <Button
                                 onClick={handleLogin}
                                 className="w-full"

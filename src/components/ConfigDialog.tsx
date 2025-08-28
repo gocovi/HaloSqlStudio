@@ -9,13 +9,19 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
-import { Settings, Save, Eye, EyeOff } from "lucide-react";
-import { ConfigValidation } from "./ConfigValidation";
+import {
+    Settings,
+    Save,
+    Eye,
+    EyeOff,
+    CheckCircle,
+    RotateCcw,
+} from "lucide-react";
 import { useConfig } from "@/hooks/useConfig";
 import type { HaloConfig } from "@/hooks/useConfig";
 
 export const ConfigDialog: React.FC = () => {
-    const { config, saveConfig } = useConfig();
+    const { config, isConfigured, saveConfig, resetConfig } = useConfig();
     const [isOpen, setIsOpen] = useState(false);
     const [localConfig, setLocalConfig] = useState<HaloConfig>(config);
     const [showClientSecret, setShowClientSecret] = useState(false);
@@ -35,6 +41,16 @@ export const ConfigDialog: React.FC = () => {
         setIsOpen(false);
     };
 
+    const handleReset = () => {
+        resetConfig();
+        setLocalConfig({
+            authServer: "",
+            resourceServer: "",
+            clientId: "",
+            redirectUri: config.redirectUri, // Keep the auto-generated redirect URI
+        });
+    };
+
     const handleInputChange = (field: keyof HaloConfig, value: string) => {
         setLocalConfig((prev) => ({ ...prev, [field]: value }));
     };
@@ -48,13 +64,22 @@ export const ConfigDialog: React.FC = () => {
                     title="Configure"
                 >
                     <Settings className="h-4 w-4 mr-2" />
+                    {isConfigured && (
+                        <CheckCircle className="h-4 w-4 ml-2 text-green-600" />
+                    )}
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                     <DialogTitle>Halo Configuration</DialogTitle>
+                    {isConfigured && (
+                        <div className="text-sm text-green-600 flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4" />
+                            Configuration complete! You can now log in.
+                        </div>
+                    )}
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
+                <div className="space-y-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="authServer" className="text-right">
                             Auth Server
@@ -104,6 +129,7 @@ export const ConfigDialog: React.FC = () => {
                                     )
                                 }
                                 placeholder="Your OAuth client ID"
+                                className="flex-1"
                             />
                             <Button
                                 type="button"
@@ -137,10 +163,17 @@ export const ConfigDialog: React.FC = () => {
                             setting up your OAuth application in Halo.
                         </div>
                     </div>
-                </div>
 
-                <div className="border-t pt-4">
-                    <ConfigValidation config={localConfig} />
+                    <div className="text-center pt-2">
+                        <button
+                            type="button"
+                            onClick={handleReset}
+                            className="text-sm text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1 mx-auto"
+                        >
+                            <RotateCcw className="h-3 w-3" />
+                            Reset to defaults
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex justify-end gap-2">

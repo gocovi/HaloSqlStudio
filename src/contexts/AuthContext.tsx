@@ -4,6 +4,7 @@ import React, {
     useEffect,
     useState,
     ReactNode,
+    useCallback,
 } from "react";
 import { useNavigate } from "react-router-dom";
 import type { HaloUser } from "@/services/auth/types";
@@ -74,38 +75,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
     };
 
-    const handleCallback = async (code: string): Promise<boolean> => {
-        try {
-            setIsLoading(true);
+    const handleCallback = useCallback(
+        async (code: string): Promise<boolean> => {
+            try {
+                setIsLoading(true);
 
-            const success = await authService.handleCallback(
-                {
-                    authServer: config.authServer,
-                    clientId: config.clientId,
-                    redirectUri: config.redirectUri,
-                },
-                code
-            );
+                const success = await authService.handleCallback(
+                    {
+                        authServer: config.authServer,
+                        clientId: config.clientId,
+                        redirectUri: config.redirectUri,
+                    },
+                    code
+                );
 
-            if (success) {
-                // Re-check authentication status
-                const authenticated = authService.isAuthenticated();
-                setIsAuthenticated(authenticated);
+                if (success) {
+                    // Re-check authentication status
+                    const authenticated = authService.isAuthenticated();
+                    setIsAuthenticated(authenticated);
 
-                if (authenticated) {
-                    const currentUser = authService.getCurrentUser();
-                    setUser(currentUser);
+                    if (authenticated) {
+                        const currentUser = authService.getCurrentUser();
+                        setUser(currentUser);
+                    }
                 }
-            }
 
-            setIsLoading(false);
-            return success;
-        } catch (error) {
-            console.error("Failed to handle auth callback:", error);
-            setIsLoading(false);
-            return false;
-        }
-    };
+                setIsLoading(false);
+                return success;
+            } catch (error) {
+                console.error("Failed to handle auth callback:", error);
+                setIsLoading(false);
+                return false;
+            }
+        },
+        [config.authServer, config.clientId, config.redirectUri]
+    );
 
     const logout = () => {
         authService.logout();

@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useCallback } from "react";
+import { useConfigStore } from "@/stores/configStore";
 
 export interface HaloConfig {
     authServer: string;
@@ -7,87 +8,62 @@ export interface HaloConfig {
     redirectUri: string;
 }
 
-const defaultConfig: HaloConfig = {
-    authServer: "",
-    resourceServer: "",
-    clientId: "",
-    redirectUri: "",
-};
-
-const CONFIG_STORAGE_KEY = "halo-config";
-
 export function useConfig() {
-    const [config, setConfig] = useState<HaloConfig>(defaultConfig);
-    const [isLoaded, setIsLoaded] = useState(false);
+    const {
+        config,
+        isLoaded,
+        isConfigured,
+        setConfig,
+        resetConfig,
+        generateRedirectUri,
+        setLoaded,
+    } = useConfigStore();
 
-    // Load config from localStorage on mount
-    useEffect(() => {
-        try {
-            const stored = localStorage.getItem(CONFIG_STORAGE_KEY);
-            if (stored) {
-                const loadedConfig = {
-                    ...defaultConfig,
-                    ...JSON.parse(stored),
-                };
-                setConfig(loadedConfig);
-            } else {
-                // Initialize with default redirect URI
-                const defaultRedirectUri = generateRedirectUri();
-                setConfig((prev) => ({
-                    ...prev,
-                    redirectUri: defaultRedirectUri,
-                }));
-            }
-        } catch (error) {
-            console.warn("Failed to read config from localStorage:", error);
-            const defaultRedirectUri = generateRedirectUri();
-            setConfig((prev) => ({ ...prev, redirectUri: defaultRedirectUri }));
-        } finally {
-            setIsLoaded(true);
-        }
-    }, []);
+    // Memoize the redirect URI generation to prevent unnecessary re-renders
+    const memoizedGenerateRedirectUri = useCallback(() => {
+        return generateRedirectUri();
+    }, [generateRedirectUri]);
 
-    // Generate redirect URI based on current location
-    const generateRedirectUri = useCallback((): string => {
-        const baseUrl = window.location.origin;
-        return `${baseUrl}/auth/callback`;
-    }, []);
-
-    // Save config to localStorage
-    const saveConfig = useCallback(
+    // Memoize the setConfig function to prevent unnecessary re-renders
+    const memoizedSetConfig = useCallback(
         (updates: Partial<HaloConfig>) => {
-            try {
-                const updatedConfig = { ...config, ...updates };
-                setConfig(updatedConfig);
-                localStorage.setItem(
-                    CONFIG_STORAGE_KEY,
-                    JSON.stringify(updatedConfig)
-                );
-                return updatedConfig;
-            } catch (error) {
-                console.warn("Failed to save config to localStorage:", error);
-                return config;
-            }
+            setConfig(updates);
         },
-        [config]
+        [setConfig]
     );
 
-    // Reset config to defaults
-    const resetConfig = useCallback(() => {
-        const defaultRedirectUri = generateRedirectUri();
-        const resetConfig = {
-            ...defaultConfig,
-            redirectUri: defaultRedirectUri,
-        };
-        setConfig(resetConfig);
-        localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(resetConfig));
-    }, [generateRedirectUri]);
+    // Initialize config on mount if not already loaded
+    useEffect(() => {
+        if (!isLoaded) {
+            // Generate redirect URI if not set
+            if (!config.redirectUri) {
+                const defaultRedirectUri = memoizedGenerateRedirectUri();
+                memoizedSetConfig({ redirectUri: defaultRedirectUri });
+            }
+            setLoaded(true);
+        }
+    }, [
+        isLoaded,
+        config.redirectUri,
+        memoizedGenerateRedirectUri,
+        memoizedSetConfig,
+        setLoaded,
+    ]);
+
+    // Save config to store (this will automatically persist to localStorage via Zustand)
+    const saveConfig = useCallback(
+        (updates: Partial<HaloConfig>) => {
+            setConfig(updates);
+        },
+        [setConfig]
+    );
 
     return {
         config,
         isLoaded,
+        isConfigured,
         saveConfig,
         resetConfig,
-        generateRedirectUri,
+        generateRedirectUri: memoizedGenerateRedirectUri,
     };
 }
