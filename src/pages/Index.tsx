@@ -163,6 +163,47 @@ const Index = () => {
             {/* Header */}
             <div className="absolute top-0 left-0 right-0 h-12 bg-background border-b flex items-center justify-between px-4 z-10">
                 <div className="flex items-center gap-2">
+                    {/* Logo */}
+                    <svg
+                        width="24"
+                        height="24"
+                        viewBox="0 0 500 500"
+                        className="flex-shrink-0"
+                    >
+                        <g transform="matrix(1.54321,0,0,1.54321,-98.7654,-89.5062)">
+                            <path
+                                d="M226,58C315.41,58 388,130.59 388,220C388,309.41 315.41,382 226,382C136.59,382 64,309.41 64,220C64,130.59 136.59,58 226,58ZM147.357,273.917L132.282,319.144L176.723,304.33C191.044,313.721 207.928,319.144 226,319.144C277.724,319.144 319.718,274.719 319.718,220C319.718,165.281 277.724,120.856 226,120.856C174.276,120.856 132.282,165.281 132.282,220C132.282,239.876 137.822,258.393 147.357,273.917Z"
+                                style={{ fill: "url(#_Linear1)" }}
+                            />
+                        </g>
+                        <defs>
+                            <linearGradient
+                                id="_Linear1"
+                                x1="0"
+                                y1="0"
+                                x2="1"
+                                y2="0"
+                                gradientUnits="userSpaceOnUse"
+                                gradientTransform="matrix(213.84,-243.648,243.648,213.84,115.192,338.584)"
+                            >
+                                <stop
+                                    offset="0"
+                                    style={{
+                                        stopColor: "rgb(0,52,121)",
+                                        stopOpacity: 1,
+                                    }}
+                                />
+                                <stop
+                                    offset="1"
+                                    style={{
+                                        stopColor: "rgb(0,79,184)",
+                                        stopOpacity: 1,
+                                    }}
+                                />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+
                     <h1 className="text-lg font-semibold">Halo SQL Studio</h1>
                     <span className="text-sm text-muted-foreground">
                         •{" "}
