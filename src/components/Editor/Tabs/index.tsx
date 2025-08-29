@@ -19,14 +19,25 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { Play, Plus, X, Save, Variable, Bell, Terminal } from "lucide-react";
+import {
+    Play,
+    Plus,
+    X,
+    Save,
+    Variable,
+    Bell,
+    Terminal,
+    ExternalLink,
+} from "lucide-react";
 import { useEditorStore } from "../store/editorStore";
 import { ReportTab } from "./ReportTab";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
 import { VariablesDialog } from "../VariablesDialog";
 import { WarningsDropdown } from "../WarningsDropdown";
+import { ReportDialog } from "../ReportDialog";
 import { warningRegistry, type WarningResult } from "@/lib/warnings";
+import { useConfig } from "@/hooks/useConfig";
 
 export function Tabs() {
     const {
@@ -45,13 +56,15 @@ export function Tabs() {
         setVariables,
     } = useEditorStore();
 
-    const { updateReport, executeQuery: executeQueryApi } = useApi();
+    const { createOrUpdateReport, executeQuery: executeQueryApi } = useApi();
     const { toast } = useToast();
+    const { config } = useConfig();
 
     const [editingTitle, setEditingTitle] = useState("");
     const [showSaveConfirm, setShowSaveConfirm] = useState(false);
     const [showVariablesDialog, setShowVariablesDialog] = useState(false);
     const [showWarningsPanel, setShowWarningsPanel] = useState(false);
+    const [showReportDialog, setShowReportDialog] = useState(false);
     const [warnings, setWarnings] = useState<WarningResult[]>([]);
 
     const handleDoubleClick = (tab: {
@@ -122,13 +135,22 @@ export function Tabs() {
     };
 
     const handleSaveClick = () => {
-        setShowSaveConfirm(true);
+        setShowReportDialog(true);
     };
 
     const handleSaveConfirm = async () => {
         if (activeTabId) {
             try {
-                await saveReport(activeTabId, updateReport);
+                await saveReport(
+                    activeTabId,
+                    async (reportId: string, sql: string) => {
+                        await createOrUpdateReport({
+                            sql,
+                            name: "Report",
+                            id: reportId,
+                        });
+                    }
+                );
                 toast({
                     title: "Report saved",
                     description: "Your report has been saved successfully.",
@@ -139,7 +161,7 @@ export function Tabs() {
                     description:
                         error instanceof Error
                             ? error.message
-                            : "Failed to save report changes.",
+                            : "Failed to save report.",
                     variant: "destructive",
                 });
             }
@@ -152,7 +174,9 @@ export function Tabs() {
     };
 
     const activeTab = tabs.find((t) => t.id === activeTabId);
-    const canSave = activeTab?.isReport && activeTab?.hasUnsavedChanges;
+    const canSave =
+        activeTab &&
+        (activeTab.sql.trim() !== "" || activeTab.hasUnsavedChanges);
 
     // Scan for warnings when active tab changes or SQL changes
     useEffect(() => {
@@ -280,8 +304,8 @@ export function Tabs() {
                     )}
                 </div>
 
-                {/* Save button - only for report tabs with changes */}
-                {activeTab?.isReport && (
+                {/* Save button - for any tab with SQL content */}
+                {activeTab && activeTab.sql.trim() !== "" && (
                     <div className="flex items-center border-r border-border">
                         <button
                             onClick={handleSaveClick}
@@ -289,8 +313,10 @@ export function Tabs() {
                             className="flex items-center justify-center h-10 w-10 rounded hover:bg-accent/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             title={
                                 !canSave
-                                    ? "No changes to save"
-                                    : "Save changes to report"
+                                    ? "No content to save"
+                                    : activeTab.isReport
+                                    ? "Save changes to report"
+                                    : "Save as new report"
                             }
                         >
                             <Save className="h-5 w-5 text-blue-500" />
@@ -394,13 +420,32 @@ export function Tabs() {
 
                                 {/* Close button - now truly integrated with the tab */}
                                 {!tab.isPinned && (
-                                    <button
-                                        onClick={() => closeTab(tab.id)}
-                                        className="h-full w-8 flex items-center justify-center"
-                                        title="Close tab"
-                                    >
-                                        <X className="h-3 w-3 text-muted-foreground" />
-                                    </button>
+                                    <>
+                                        {/* Link icon for report tabs */}
+                                        {tab.isReport && tab.reportId && (
+                                            <button
+                                                onClick={() => {
+                                                    const reportUrl = `${config.resourceServer}/reports?id=${tab.reportId}`;
+                                                    window.open(
+                                                        reportUrl,
+                                                        "_blank"
+                                                    );
+                                                }}
+                                                className="h-full w-8 flex items-center justify-center cursor-pointer"
+                                                title="Open report in new tab"
+                                            >
+                                                <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                            </button>
+                                        )}
+
+                                        <button
+                                            onClick={() => closeTab(tab.id)}
+                                            className="h-full w-8 flex items-center justify-center cursor-pointer"
+                                            title="Close tab"
+                                        >
+                                            <X className="h-3 w-3 text-muted-foreground" />
+                                        </button>
+                                    </>
                                 )}
                             </div>
 
@@ -462,6 +507,16 @@ export function Tabs() {
                 onOpenChange={setShowVariablesDialog}
                 variables={variables}
                 onVariablesChange={setVariables}
+            />
+
+            {/* Report Dialog */}
+            <ReportDialog
+                open={showReportDialog}
+                onOpenChange={setShowReportDialog}
+                tab={activeTab}
+                onSave={() => {
+                    // Refresh reports after saving
+                }}
             />
         </div>
     );

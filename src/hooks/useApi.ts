@@ -233,9 +233,14 @@ export function useApi() {
         }
     }, [apiClient, executeQuery]);
 
-    // Update report
-    const updateReport = useCallback(
-        async (reportId: string, sql: string): Promise<void> => {
+    // Create or update report
+    const createOrUpdateReport = useCallback(
+        async (reportData: {
+            sql: string;
+            name: string;
+            description?: string;
+            id?: string;
+        }): Promise<{ id: string }> => {
             if (!apiClient) {
                 throw new Error("API not configured - check configuration");
             }
@@ -244,23 +249,41 @@ export function useApi() {
             setError(null);
 
             try {
-                await apiClient.makeRequest("/report", {
+                const body: any = {
+                    sql: reportData.sql,
+                    name: reportData.name,
+                    description: reportData.description || "",
+                };
+
+                // If we have an id, include it for updates
+                if (reportData.id) {
+                    body.id = parseInt(reportData.id, 10);
+                }
+
+                const result = await apiClient.makeRequest("/report", {
                     method: "POST",
-                    body: JSON.stringify([
-                        {
-                            sql,
-                            id: parseInt(reportId, 10),
-                        },
-                    ]),
+                    body: JSON.stringify([body]),
                 });
 
-                // If the request succeeds without throwing an error, consider it successful
-                // No need to check for a returned report object
+                // The API returns either an array with the created/updated report or a single object
+                if (
+                    Array.isArray(result) &&
+                    result.length > 0 &&
+                    result[0].id
+                ) {
+                    // Array format: [{ id: 123 }]
+                    return { id: result[0].id.toString() };
+                } else if (result && typeof result === "object" && result.id) {
+                    // Single object format: { id: 123 }
+                    return { id: result.id.toString() };
+                } else {
+                    throw new Error("Invalid response format from server");
+                }
             } catch (error) {
                 const errorMessage =
                     error instanceof Error
                         ? error.message
-                        : "Failed to update report";
+                        : "Failed to save report";
                 setError(errorMessage);
                 throw error;
             }
@@ -277,7 +300,7 @@ export function useApi() {
         executeQuery,
         getTables,
         getReports,
-        updateReport,
+        createOrUpdateReport,
         isLoading,
         error,
         clearError,

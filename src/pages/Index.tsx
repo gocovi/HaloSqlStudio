@@ -11,8 +11,6 @@ import { useNavigate } from "react-router-dom";
 import { Explorer } from "@/components/Explorer";
 import { useAuth } from "@/contexts/AuthContext";
 import { useConfig } from "@/hooks/useConfig";
-import { useTables } from "@/hooks/useTables";
-import { useReports } from "@/hooks/useTables";
 import { useApi } from "@/hooks/useApi";
 import type { QueryResult } from "@/services/api/types";
 import { Button } from "@/components/ui/button";
@@ -32,20 +30,6 @@ const Editor = lazy(() =>
 const Index = () => {
     const { isAuthenticated, logout } = useAuth();
     const { config } = useConfig();
-    const {
-        tables,
-        isLoading: isLoadingTables,
-        isLoaded: isTablesLoaded,
-        refreshTables,
-        loadTables,
-    } = useTables();
-    const {
-        reports,
-        isLoading: isLoadingReports,
-        isLoaded: isReportsLoaded,
-        refreshReports,
-        loadReports,
-    } = useReports();
     const { executeQuery, updateReport } = useApi();
     const navigate = useNavigate();
 
@@ -124,37 +108,10 @@ const Index = () => {
         []
     );
 
-    const handleReportSelect = useCallback(
-        (reportId: string) => {
-            // Find the report by ID
-            const report = reports
-                .flatMap((group) => group.reports)
-                .find((r) => r.id === reportId);
-            if (report) {
-                createReportTab({
-                    id: report.id,
-                    name: report.name,
-                    sql: report.sql,
-                });
-            }
-        },
-        [reports, createReportTab]
-    );
-
-    const handleRefresh = useCallback(async () => {
-        await Promise.all([refreshTables(), refreshReports()]);
-    }, [refreshTables, refreshReports]);
-
-    const handleTabChange = useCallback(
-        (tab: "tables" | "reports") => {
-            if (tab === "tables" && !isTablesLoaded) {
-                loadTables();
-            } else if (tab === "reports" && !isReportsLoaded) {
-                loadReports();
-            }
-        },
-        [isTablesLoaded, isReportsLoaded, loadTables, loadReports]
-    );
+    const handleReportSelect = useCallback((reportId: string) => {
+        // This will be handled by the Explorer component using the store
+        console.log("Report selected:", reportId);
+    }, []);
 
     // Authentication is now handled by ProtectedRoute component
 
@@ -232,20 +189,9 @@ const Index = () => {
                 style={{ width: `${explorerWidth}px` }}
             >
                 <Explorer
-                    tables={tables}
-                    reports={reports}
                     onTableSelect={handleTableSelect}
                     onColumnSelect={handleColumnSelect}
                     onReportSelect={handleReportSelect}
-                    onRefresh={handleRefresh}
-                    isLoading={isLoadingTables || isLoadingReports}
-                    loadTables={loadTables}
-                    loadReports={loadReports}
-                    isTablesLoaded={isTablesLoaded}
-                    isReportsLoaded={isReportsLoaded}
-                    onTabChange={handleTabChange}
-                    isLoadingTables={isLoadingTables}
-                    isLoadingReports={isLoadingReports}
                 />
             </div>
 
