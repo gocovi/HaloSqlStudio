@@ -44,6 +44,7 @@ export const ConfigDialog: React.FC = () => {
     const handleReset = () => {
         resetConfig();
         setLocalConfig({
+            tenant: "",
             authServer: "",
             resourceServer: "",
             clientId: "",
@@ -52,7 +53,29 @@ export const ConfigDialog: React.FC = () => {
     };
 
     const handleInputChange = (field: keyof HaloConfig, value: string) => {
-        setLocalConfig((prev) => ({ ...prev, [field]: value }));
+        const updates: Partial<HaloConfig> = { [field]: value };
+
+        // Auto-fill Resource Server when tenant is entered
+        if (field === "tenant" && value.trim()) {
+            const resourceServer = `https://${value.trim()}.halopsa.com`;
+            updates.resourceServer = resourceServer;
+            // Also auto-fill Auth Server since we now have Resource Server
+            updates.authServer = `${resourceServer}/auth`;
+        }
+
+        // Auto-fill Auth Server when Resource Server is entered
+        if (field === "resourceServer" && value.trim()) {
+            updates.authServer = `${value.trim()}/auth`;
+        }
+
+        setLocalConfig((prev) => ({ ...prev, ...updates }));
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            handleSave();
+        }
     };
 
     return (
@@ -81,18 +104,26 @@ export const ConfigDialog: React.FC = () => {
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="authServer" className="text-right">
-                            Auth Server
+                        <Label htmlFor="tenant" className="text-right">
+                            Tenant
                         </Label>
-                        <Input
-                            id="authServer"
-                            value={localConfig.authServer}
-                            onChange={(e) =>
-                                handleInputChange("authServer", e.target.value)
-                            }
-                            placeholder="https://mymsp.halopsa.com/auth"
-                            className="col-span-3"
-                        />
+                        <div className="col-span-3">
+                            <Input
+                                id="tenant"
+                                value={localConfig.tenant}
+                                onChange={(e) =>
+                                    handleInputChange("tenant", e.target.value)
+                                }
+                                onKeyDown={handleKeyDown}
+                                placeholder="yourcompany"
+                                className="w-full"
+                            />
+                            <div className="text-xs text-muted-foreground mt-1">
+                                Use if you're using the hosted version of
+                                HaloPSA. This will autofill Resource Server to
+                                be: https://tenant.halopsa.com
+                            </div>
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-4 items-center gap-4">
@@ -108,7 +139,24 @@ export const ConfigDialog: React.FC = () => {
                                     e.target.value
                                 )
                             }
+                            onKeyDown={handleKeyDown}
                             placeholder="https://mymsp.halopsa.com"
+                            className="col-span-3"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="authServer" className="text-right">
+                            Auth Server
+                        </Label>
+                        <Input
+                            id="authServer"
+                            value={localConfig.authServer}
+                            onChange={(e) =>
+                                handleInputChange("authServer", e.target.value)
+                            }
+                            onKeyDown={handleKeyDown}
+                            placeholder="https://mymsp.halopsa.com/auth"
                             className="col-span-3"
                         />
                     </div>
@@ -128,6 +176,7 @@ export const ConfigDialog: React.FC = () => {
                                         e.target.value
                                     )
                                 }
+                                onKeyDown={handleKeyDown}
                                 placeholder="Your OAuth client ID"
                                 className="flex-1"
                             />

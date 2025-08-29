@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 export interface HaloConfig {
+    tenant: string;
     authServer: string;
     resourceServer: string;
     clientId: string;
@@ -9,6 +10,7 @@ export interface HaloConfig {
 }
 
 const defaultConfig: HaloConfig = {
+    tenant: "",
     authServer: "",
     resourceServer: "",
     clientId: "",

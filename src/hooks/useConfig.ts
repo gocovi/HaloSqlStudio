@@ -2,6 +2,7 @@ import { useEffect, useCallback } from "react";
 import { useConfigStore } from "@/stores/configStore";
 
 export interface HaloConfig {
+    tenant: string;
     authServer: string;
     resourceServer: string;
     clientId: string;
