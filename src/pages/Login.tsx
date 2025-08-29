@@ -34,8 +34,20 @@ const Login: React.FC = () => {
         <div className="min-h-screen flex items-center justify-center bg-background p-4">
             <Card className="w-full max-w-md">
                 <CardHeader className="text-center">
-                    <div className="mx-auto mb-4 p-3 bg-primary/10 rounded-full w-16 h-16 flex items-center justify-center">
-                        <Database className="h-8 w-8 text-primary" />
+                    <div className="mx-auto mb-4 flex items-center justify-center">
+                        <svg
+                            width="48"
+                            height="48"
+                            viewBox="0 0 500 500"
+                            className="text-primary"
+                        >
+                            <g transform="matrix(1.54321,0,0,1.54321,-98.7654,-89.5062)">
+                                <path
+                                    d="M226,58C315.41,58 388,130.59 388,220C388,309.41 315.41,382 226,382C136.59,382 64,309.41 64,220C64,130.59 136.59,58 226,58ZM147.357,273.917L132.282,319.144L176.723,304.33C191.044,313.721 207.928,319.144 226,319.144C277.724,319.144 319.718,274.719 319.718,220C319.718,165.281 277.724,120.856 226,120.856C174.276,120.856 132.282,165.281 132.282,220C132.282,239.876 137.822,258.393 147.357,273.917Z"
+                                    style={{ fill: "currentColor" }}
+                                />
+                            </g>
+                        </svg>
                     </div>
                     <CardTitle className="text-2xl">Halo SQL Studio</CardTitle>
                     <CardDescription>
