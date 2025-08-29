@@ -30,7 +30,7 @@ const myTheme = themeQuartz.withParams({
     },
     foregroundColor: "#FFF",
     headerBackgroundColor: "#191B1F",
-    headerFontSize: 14,
+    headerFontSize: 16,
     wrapperBorderRadius: 0,
 
     // Additional theme parameters for better appearance
@@ -78,13 +78,12 @@ export const ResultsTable: React.FC<AgDataTableProps> = ({ result }) => {
             minWidth: 120,
             maxWidth: 300,
             cellStyle: {
-                fontSize: "12px",
-                padding: "6px 8px",
+                fontSize: "14px",
+                padding: "8px 12px",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
             },
-            headerClass: "ag-header-cell-custom",
         }));
     }, [result]);
 
@@ -95,8 +94,8 @@ export const ResultsTable: React.FC<AgDataTableProps> = ({ result }) => {
         columnDefs,
 
         // Styling
-        rowHeight: 32,
-        headerHeight: 40,
+        rowHeight: 40,
+        headerHeight: 44,
 
         // Features
         enableCellTextSelection: true,
@@ -124,6 +123,12 @@ export const ResultsTable: React.FC<AgDataTableProps> = ({ result }) => {
             resizable: true,
             minWidth: 120,
             maxWidth: 300,
+            cellStyle: {
+                fontSize: "14px",
+                padding: "8px 12px",
+                display: "flex",
+                alignItems: "center",
+            },
         },
     };
 

@@ -19,17 +19,19 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { Play, Plus, X, Save } from "lucide-react";
+import { Play, Plus, X, Save, Variable } from "lucide-react";
 import { useEditorStore } from "../store/editorStore";
 import { ReportTab } from "./ReportTab";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
+import { VariablesDialog } from "../VariablesDialog";
 
 export function Tabs() {
     const {
         tabs,
         activeTabId,
         editingTabId,
+        variables,
         setActiveTab,
         closeTab,
         startEditingTab,
@@ -38,6 +40,7 @@ export function Tabs() {
         addTab,
         saveReport,
         executeQuery,
+        setVariables,
     } = useEditorStore();
 
     const { updateReport, executeQuery: executeQueryApi } = useApi();
@@ -45,6 +48,7 @@ export function Tabs() {
 
     const [editingTitle, setEditingTitle] = useState("");
     const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+    const [showVariablesDialog, setShowVariablesDialog] = useState(false);
 
     const handleDoubleClick = (tab: {
         id: string;
@@ -150,6 +154,41 @@ export function Tabs() {
                         title="Execute query (Ctrl+Enter)"
                     >
                         <Play className="h-5 w-5 text-green-500" />
+                    </button>
+                </div>
+
+                {/* Variables button */}
+                <div className="flex items-center border-r border-border">
+                    <button
+                        onClick={() => setShowVariablesDialog(true)}
+                        className="flex items-center justify-center h-8 w-8 rounded hover:bg-accent/50 transition-colors relative"
+                        title={`Edit Halo variables${
+                            variables.$agentid ||
+                            variables.$siteid ||
+                            variables.$clientid
+                                ? `\n\nActive variables:\n${
+                                      variables.$agentid
+                                          ? `$agentid: ${variables.$agentid}\n`
+                                          : ""
+                                  }${
+                                      variables.$siteid
+                                          ? `$siteid: ${variables.$siteid}\n`
+                                          : ""
+                                  }${
+                                      variables.$clientid
+                                          ? `$clientid: ${variables.$clientid}`
+                                          : ""
+                                  }`
+                                : "\n\nNo variables set - will use logged-in user values"
+                        }`}
+                    >
+                        <Variable className="h-4 w-4 text-blue-500" />
+                        {/* Show indicator when any variables are set */}
+                        {(variables.$agentid ||
+                            variables.$siteid ||
+                            variables.$clientid) && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-background"></div>
+                        )}
                     </button>
                 </div>
 
@@ -302,6 +341,14 @@ export function Tabs() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Variables Dialog */}
+            <VariablesDialog
+                open={showVariablesDialog}
+                onOpenChange={setShowVariablesDialog}
+                variables={variables}
+                onVariablesChange={setVariables}
+            />
         </div>
     );
 }

@@ -92,4 +92,45 @@
         scrollbar-width: thin;
         scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
     }
+
+    /* AG Grid Custom Styling */
+    .ag-theme-quartz {
+        --ag-font-size: 14px;
+        --ag-line-height: 1.4;
+        --ag-row-height: 40px;
+        --ag-header-height: 44px;
+        --ag-cell-horizontal-padding: 12px;
+        --ag-cell-vertical-padding: 8px;
+        --ag-header-cell-horizontal-padding: 12px;
+        --ag-header-cell-vertical-padding: 12px;
+        --ag-row-hover-color: rgba(60, 131, 246, 0.1);
+        --ag-selected-row-background-color: rgba(60, 131, 246, 0.2);
+        --ag-border-color: #2a2d31;
+        --ag-header-background-color: #191b1f;
+        --ag-background-color: #14161a;
+        --ag-foreground-color: #fff;
+    }
+
+    /* Ensure cells are vertically centered */
+    .ag-theme-quartz .ag-cell {
+        display: flex !important;
+        align-items: center !important;
+        line-height: 1.4 !important;
+    }
+
+    /* Header styling */
+    .ag-theme-quartz .ag-header-cell {
+        font-weight: 600 !important;
+        color: #fff !important;
+    }
+
+    /* Row borders */
+    .ag-theme-quartz .ag-row {
+        border-bottom: 1px solid #2a2d31 !important;
+    }
+
+    /* Hover effects */
+    .ag-theme-quartz .ag-row:hover {
+        background-color: rgba(60, 131, 246, 0.1) !important;
+    }
 }

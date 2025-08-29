@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { replaceHaloVariables } from "@/lib/variable-replacer";
 
 export interface Tab {
     id: string;
@@ -27,6 +28,7 @@ interface EditorState {
     tabs: Tab[];
     activeTabId: string;
     editingTabId: string | null;
+    variables: Record<string, string>;
 
     // Actions
     addTab: (title: string, sql?: string, metadata?: Partial<Tab>) => void;
@@ -59,6 +61,9 @@ interface EditorState {
     setGlobalFilter: (tabId: string, filter: string) => void;
     clearGlobalFilter: (tabId: string) => void;
 
+    // Variables actions
+    setVariables: (variables: Record<string, string>) => void;
+
     // Utility
     getActiveTab: () => Tab | undefined;
     getTabById: (id: string) => Tab | undefined;
@@ -81,6 +86,11 @@ export const useEditorStore = create<EditorState>()(
             ],
             activeTabId: "console",
             editingTabId: null,
+            variables: {
+                $agentid: "",
+                $siteid: "",
+                $clientid: "",
+            },
 
             // Actions
             addTab: (title, sql = "", metadata = {}) => {
@@ -222,7 +232,11 @@ export const useEditorStore = create<EditorState>()(
                 }));
 
                 try {
-                    const result = await executeQueryFn(tab.sql);
+                    // Replace Halo variables in SQL before execution
+                    const state = get();
+                    const processedSql = replaceHaloVariables(tab.sql, state.variables);
+
+                    const result = await executeQueryFn(processedSql);
                     set((state) => ({
                         tabs: state.tabs.map((t) =>
                             t.id === tabId
@@ -274,6 +288,11 @@ export const useEditorStore = create<EditorState>()(
                         t.id === tabId ? { ...t, globalFilter: "" } : t
                     ),
                 }));
+            },
+
+            // Variables actions
+            setVariables: (variables) => {
+                set({ variables });
             },
 
             // Utility

@@ -47,7 +47,7 @@ export function ResultsGrid({ result, loading, error }: ResultsGridProps) {
     }
 
     return (
-        <div className="grid grid-rows-[auto_1fr_auto] h-full gap-0 min-h-0">
+        <div className="grid grid-rows-[auto_1fr] h-full gap-0 min-h-0">
             <ResultsHeader
                 result={result}
                 globalFilter={globalFilter}
@@ -58,24 +58,6 @@ export function ResultsGrid({ result, loading, error }: ResultsGridProps) {
 
             <div className="min-h-0 overflow-hidden">
                 <ResultsTable result={result} />
-            </div>
-
-            {/* Footer with row count and query time */}
-            <div className="flex items-center justify-between px-3 py-2 text-xs text-muted-foreground border-t border-border bg-muted/30">
-                <div className="flex items-center gap-4">
-                    {/* Row count */}
-                    <span>{result.rowCount || result.rows.length} rows</span>
-
-                    {/* Query execution time */}
-                    {result.executionTime && (
-                        <span>{result.executionTime}ms</span>
-                    )}
-                </div>
-
-                {/* Right side footer content (can be expanded later) */}
-                <div className="flex items-center gap-2">
-                    {/* Future: Could add pagination info, data source, etc. */}
-                </div>
             </div>
         </div>
     );

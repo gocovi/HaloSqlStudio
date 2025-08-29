@@ -10,6 +10,7 @@ Halo SQL Studio is a client-side SQL editor that connects to Halo PSA via their 
 -   🗄️ **Database Explorer** - Browse tables, columns, and existing reports
 -   📝 **SQL Query Editor** - Write and execute queries with syntax highlighting
 -   📊 **Results Grid** - View results in a clean, sortable table format
+-   🔧 **Halo Variables** - Test queries with custom `$agentid`, `$siteid`, and `$clientid` values
 -   🚫 **No Backend Required** - Everything runs in your browser
 
 ## 🛠️ Setup
@@ -41,6 +42,44 @@ Halo SQL Studio is a client-side SQL editor that connects to Halo PSA via their 
 1. Click **Connect to Halo**
 2. Authorize in Halo
 3. Start exploring!
+
+## 🔧 Using Halo Variables
+
+Halo SQL Studio supports custom variable substitution for testing queries with different parameters:
+
+### Available Variables
+
+-   **`$agentid`** - Override the agent ID for query execution
+-   **`$siteid`** - Override the site ID for query execution
+-   **`$clientid`** - Override the client ID for query execution
+
+### How to Use
+
+1. **Open Variables Dialog**: Click the Variables button next to the Execute button
+2. **Set Values**: Enter custom values for any of the three variables
+3. **Execute Queries**: Variables are automatically replaced in your SQL before execution
+4. **Fallback Behavior**: Leave variables empty to use the logged-in user's values
+
+### Example
+
+```sql
+-- Your SQL query with variables
+SELECT * FROM AREA
+WHERE aarea = $clientid
+```
+
+**With Variables Set:**
+
+-   `$clientid` = "11111"
+
+**Result**: The query executes as if you were logged in as that specific agent/site/client combination.
+
+### Benefits
+
+-   **Test Different Scenarios**: Run the same SQL with various parameter combinations
+-   **User Impersonation**: Test how queries behave for different user contexts
+-   **Development Workflow**: Keep your SQL scripts while testing different parameters
+-   **No Code Changes**: Variables are replaced transparently during execution
 
 ## 🏠 Self-Hosting
 
