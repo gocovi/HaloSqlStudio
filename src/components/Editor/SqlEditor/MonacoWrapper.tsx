@@ -1,4 +1,11 @@
-import { useCallback, useRef, useEffect, Suspense, lazy } from "react";
+import {
+    useCallback,
+    useRef,
+    useEffect,
+    Suspense,
+    lazy,
+    useState,
+} from "react";
 import type { editor } from "monaco-editor";
 import * as monaco from "monaco-editor";
 import { useMonacoSetup } from "./hooks/useMonacoSetup";
@@ -29,7 +36,8 @@ export function MonacoWrapper({
     onSave,
 }: MonacoWrapperProps) {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
-    const disposableRef = useRef<{ dispose?: () => void } | null>(null);
+    const [completionProvider, setCompletionProvider] =
+        useState<monaco.IDisposable | null>(null);
     const { setupMonaco } = useMonacoSetup();
 
     const handleEditorDidMount = useCallback(
@@ -54,17 +62,26 @@ export function MonacoWrapper({
         [setupMonaco, onSave]
     );
 
-    // Cleanup disposable on unmount
+    // Cleanup editor and completion provider on unmount
     useEffect(() => {
+        const editor = editorRef.current;
+
         return () => {
-            if (
-                disposableRef.current &&
-                typeof disposableRef.current.dispose === "function"
-            ) {
-                disposableRef.current.dispose();
+            // Clean up Monaco editor instance
+            if (editor) {
+                editor.dispose();
             }
         };
     }, []);
+
+    // Cleanup completion provider when it changes
+    useEffect(() => {
+        return () => {
+            if (completionProvider) {
+                completionProvider.dispose();
+            }
+        };
+    }, [completionProvider]);
 
     const handleEditorChange = useCallback(
         (value: string | undefined) => {
@@ -278,10 +295,13 @@ export function MonacoWrapper({
                         },
                     };
 
-                    monaco.languages.registerCompletionItemProvider(
-                        "sql",
-                        completionProvider
-                    );
+                    // Register completion provider and store the disposable
+                    const disposable =
+                        monaco.languages.registerCompletionItemProvider(
+                            "sql",
+                            completionProvider
+                        );
+                    setCompletionProvider(disposable);
                 }}
                 options={{
                     padding: { top: 24, bottom: 24 },
