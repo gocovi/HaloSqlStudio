@@ -19,7 +19,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { Play, Plus, X, Save, Variable, Bell } from "lucide-react";
+import { Play, Plus, X, Save, Variable, Bell, Terminal } from "lucide-react";
 import { useEditorStore } from "../store/editorStore";
 import { ReportTab } from "./ReportTab";
 import { useApi } from "@/hooks/useApi";
@@ -300,91 +300,117 @@ export function Tabs() {
 
                 {/* Tabs */}
                 <div className="flex overflow-x-auto scrollbar-thin">
-                    {tabs.map((tab) => (
-                        <div
-                            key={tab.id}
-                            className={cn(
-                                "flex items-center min-w-0 border-r border-border group",
-                                activeTabId === tab.id
-                                    ? "bg-tab-active"
-                                    : "bg-tab-background hover:bg-accent"
-                            )}
-                        >
-                            {editingTabId === tab.id ? (
-                                <div className="flex items-center px-3 py-2 min-w-0">
-                                    <Input
-                                        value={editingTitle}
-                                        onChange={(e) =>
-                                            setEditingTitle(e.target.value)
-                                        }
-                                        onKeyDown={(e) =>
-                                            handleKeyDown(e, tab.id)
-                                        }
-                                        onBlur={() => handleTitleSubmit(tab.id)}
-                                        className="h-6 text-xs px-2 py-1 min-w-0 w-32"
-                                        autoFocus
-                                    />
-                                </div>
-                            ) : (
-                                <ContextMenu>
-                                    <ContextMenuTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className={cn(
-                                                "h-8 px-3 rounded-none min-w-0 group-hover:bg-accent/50",
-                                                activeTabId === tab.id &&
-                                                    "bg-accent/50"
-                                            )}
-                                            onClick={() => setActiveTab(tab.id)}
-                                            onDoubleClick={() =>
-                                                handleDoubleClick(tab)
-                                            }
-                                        >
-                                            <span className="truncate max-w-32">
-                                                {tab.title}
-                                            </span>
-                                            {tab.hasUnsavedChanges && (
-                                                <span className="ml-1 text-blue-500">
-                                                    •
-                                                </span>
-                                            )}
-                                        </Button>
-                                    </ContextMenuTrigger>
-                                    <ContextMenuContent>
-                                        <ContextMenuItem
-                                            onClick={() => setActiveTab(tab.id)}
-                                        >
-                                            Switch to Tab
-                                        </ContextMenuItem>
-                                        <ContextMenuItem
-                                            onClick={() =>
-                                                startEditingTab(tab.id)
-                                            }
-                                        >
-                                            Rename
-                                        </ContextMenuItem>
-                                        <ContextMenuSeparator />
-                                        <ContextMenuItem
-                                            onClick={() => closeTab(tab.id)}
-                                            disabled={tab.isPinned}
-                                        >
-                                            Close Tab
-                                        </ContextMenuItem>
-                                    </ContextMenuContent>
-                                </ContextMenu>
-                            )}
+                    {tabs.map((tab, index) => (
+                        <React.Fragment key={tab.id}>
+                            <div
+                                className={cn(
+                                    "flex items-center min-w-0 border-r border-border h-10 relative transition-colors",
+                                    // Add left border for first custom tab (index 1, after Console)
+                                    index === 1 && "border-l border-border",
+                                    activeTabId === tab.id
+                                        ? "bg-accent/50 border-b-0"
+                                        : "bg-tab-background hover:bg-accent/50"
+                                )}
+                            >
+                                {/* Active tab underline */}
+                                {activeTabId === tab.id && (
+                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                                )}
 
-                            {/* Close button */}
-                            {!tab.isPinned && (
-                                <button
-                                    onClick={() => closeTab(tab.id)}
-                                    className="h-8 w-6 flex items-center justify-center hover:bg-accent/50 opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                    <X className="h-3 w-3" />
-                                </button>
+                                {editingTabId === tab.id ? (
+                                    <div className="flex items-center px-3 py-2 min-w-0 h-full">
+                                        <Input
+                                            value={editingTitle}
+                                            onChange={(e) =>
+                                                setEditingTitle(e.target.value)
+                                            }
+                                            onKeyDown={(e) =>
+                                                handleKeyDown(e, tab.id)
+                                            }
+                                            onBlur={() =>
+                                                handleTitleSubmit(tab.id)
+                                            }
+                                            className="h-6 text-xs px-2 py-1 min-w-0 w-32"
+                                            autoFocus
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center h-full flex-1">
+                                        <ContextMenu>
+                                            <ContextMenuTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-full px-3 rounded-none min-w-0 flex-1 justify-start bg-transparent hover:bg-transparent"
+                                                    onClick={() =>
+                                                        setActiveTab(tab.id)
+                                                    }
+                                                    onDoubleClick={() =>
+                                                        handleDoubleClick(tab)
+                                                    }
+                                                >
+                                                    {/* Show terminal icon for Console tab */}
+                                                    {tab.id === "console" && (
+                                                        <Terminal className="h-3 w-3 mr-2 text-muted-foreground" />
+                                                    )}
+                                                    <span className="truncate max-w-32">
+                                                        {tab.title}
+                                                    </span>
+                                                    {tab.hasUnsavedChanges && (
+                                                        <span className="ml-1 text-blue-500">
+                                                            •
+                                                        </span>
+                                                    )}
+                                                </Button>
+                                            </ContextMenuTrigger>
+                                            <ContextMenuContent>
+                                                <ContextMenuItem
+                                                    onClick={() =>
+                                                        setActiveTab(tab.id)
+                                                    }
+                                                >
+                                                    Switch to Tab
+                                                </ContextMenuItem>
+                                                <ContextMenuItem
+                                                    onClick={() =>
+                                                        startEditingTab(tab.id)
+                                                    }
+                                                >
+                                                    Rename
+                                                </ContextMenuItem>
+                                                <ContextMenuSeparator />
+                                                <ContextMenuItem
+                                                    onClick={() =>
+                                                        closeTab(tab.id)
+                                                    }
+                                                    disabled={tab.isPinned}
+                                                >
+                                                    Close Tab
+                                                </ContextMenuItem>
+                                            </ContextMenuContent>
+                                        </ContextMenu>
+                                    </div>
+                                )}
+
+                                {/* Close button - now truly integrated with the tab */}
+                                {!tab.isPinned && (
+                                    <button
+                                        onClick={() => closeTab(tab.id)}
+                                        className="h-full w-8 flex items-center justify-center"
+                                        title="Close tab"
+                                    >
+                                        <X className="h-3 w-3 text-muted-foreground" />
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Add separator after Console tab (first tab) */}
+                            {index === 0 && (
+                                <div className="flex items-center h-10">
+                                    <div className="w-0.5 h-8 bg-muted-foreground/40 rounded-full" />
+                                </div>
                             )}
-                        </div>
+                        </React.Fragment>
                     ))}
                 </div>
 
@@ -401,7 +427,7 @@ export function Tabs() {
             </div>
 
             {/* Tab Content */}
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden bg-background">
                 {activeTab && <ReportTab key={activeTab.id} tab={activeTab} />}
             </div>
 

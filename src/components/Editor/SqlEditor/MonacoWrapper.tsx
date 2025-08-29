@@ -91,21 +91,51 @@ export function MonacoWrapper({
 
                     // Register completion provider for SQL language
                     const completionProvider = {
-                        triggerCharacters: [".", " ", "\n", "\t"],
-                        provideCompletionItems: (
-                            model: editor.ITextModel,
-                            position: monaco.Position
-                        ) => {
+                        provideCompletionItems: (model, position) => {
                             const suggestions: monaco.languages.CompletionItem[] =
                                 [];
 
+                            // Get the current word being typed - more reliable approach
+                            const word = model.getWordAtPosition(position);
+                            let currentWord = "";
+                            let wordRange = null;
+
+                            if (word) {
+                                // Get the word at the current position
+                                currentWord = word.word.toLowerCase();
+                                // Calculate the word range
+                                wordRange = {
+                                    startLineNumber: position.lineNumber,
+                                    startColumn: word.startColumn,
+                                    endLineNumber: position.lineNumber,
+                                    endColumn: word.endColumn,
+                                };
+                            } else {
+                                // Fallback: get word until position (for when typing)
+                                const wordUntil =
+                                    model.getWordUntilPosition(position);
+                                currentWord = wordUntil.word.toLowerCase();
+                            }
+
+                            // Skip if currentWord is too short (less than 1 character)
+                            if (currentWord.length < 1) {
+                                return { suggestions: [] };
+                            }
+
                             // Create a range for the current word position
-                            const range = {
-                                startLineNumber: position.lineNumber,
-                                startColumn: position.column,
-                                endLineNumber: position.lineNumber,
-                                endColumn: position.column,
-                            };
+                            let range;
+                            if (wordRange) {
+                                // Use the actual word range when available
+                                range = wordRange;
+                            } else {
+                                // Fallback to cursor position
+                                range = {
+                                    startLineNumber: position.lineNumber,
+                                    startColumn: position.column,
+                                    endLineNumber: position.lineNumber,
+                                    endColumn: position.column,
+                                };
+                            }
 
                             // SQL Keywords
                             const sqlKeywords = [
@@ -124,7 +154,6 @@ export function MonacoWrapper({
                                 "IN",
                                 "EXISTS",
                                 "GROUP BY",
-                                "ORDER BY",
                                 "HAVING",
                                 "LIMIT",
                                 "OFFSET",
@@ -152,70 +181,97 @@ export function MonacoWrapper({
                                 "ALL",
                             ];
 
-                            // Add SQL keywords
-                            sqlKeywords.forEach((keyword) => {
-                                suggestions.push({
-                                    label: keyword,
-                                    kind: monaco.languages.CompletionItemKind
-                                        .Keyword,
-                                    insertText: keyword,
-                                    detail: "SQL Keyword",
-                                    sortText: "0" + keyword,
-                                    range: range,
-                                });
-                            });
-
-                            // Add table names - access tables from global context
+                            // Add table names FIRST - highest priority
                             const currentTables = window.__HALO_TABLES__ || [];
                             currentTables.forEach((table: TableInfo) => {
-                                suggestions.push({
-                                    label: table.name,
-                                    kind: monaco.languages.CompletionItemKind
-                                        .Class,
-                                    insertText: table.name,
-                                    detail: "Table",
-                                    sortText: "1" + table.name,
-                                    range: range,
-                                    documentation: {
-                                        value: `Table: ${
-                                            table.name
-                                        }\nColumns: ${table.columns
-                                            .map((col) => col.name)
-                                            .join(", ")}`,
-                                    },
-                                });
+                                const tableName = table.name;
+                                const tableNameLower = tableName.toLowerCase();
 
-                                // Add column names with table prefix
-                                table.columns.forEach((column) => {
+                                // Only add tables that actually match what's being typed
+                                if (tableNameLower.startsWith(currentWord)) {
                                     suggestions.push({
-                                        label: `${table.name}.${column.name}`,
+                                        label: tableName,
                                         kind: monaco.languages
-                                            .CompletionItemKind.Field,
-                                        insertText: `${table.name}.${column.name}`,
-                                        detail: `Column (${column.data_type})`,
-                                        sortText:
-                                            "2" +
-                                            `${table.name}.${column.name}`,
+                                            .CompletionItemKind.Class,
+                                        insertText: tableName,
+                                        detail: "Table",
+                                        sortText: `A${tableName}`,
                                         range: range,
                                         documentation: {
-                                            value: `Column: ${column.name}\nType: ${column.data_type}\nTable: ${table.name}`,
+                                            value: `Table: ${tableName}\nColumns: ${table.columns
+                                                .map((col) => col.name)
+                                                .join(", ")}`,
                                         },
                                     });
 
-                                    // Also add just the column name
-                                    suggestions.push({
-                                        label: column.name,
-                                        kind: monaco.languages
-                                            .CompletionItemKind.Field,
-                                        insertText: column.name,
-                                        detail: `Column (${column.data_type})`,
-                                        sortText: "3" + column.name,
-                                        range: range,
-                                        documentation: {
-                                            value: `Column: ${column.name}\nType: ${column.data_type}\nTable: ${table.name}`,
-                                        },
+                                    // Add column names with table prefix
+                                    table.columns.forEach((column) => {
+                                        const columnName = column.name;
+                                        const columnNameLower =
+                                            columnName.toLowerCase();
+                                        const fullName = `${tableName}.${columnName}`;
+                                        const fullNameLower =
+                                            fullName.toLowerCase();
+
+                                        // Only add table.column combinations that match what's being typed
+                                        if (
+                                            fullNameLower.startsWith(
+                                                currentWord
+                                            )
+                                        ) {
+                                            suggestions.push({
+                                                label: fullName,
+                                                kind: monaco.languages
+                                                    .CompletionItemKind.Field,
+                                                insertText: fullName,
+                                                detail: `Column (${column.data_type})`,
+                                                sortText: `B${fullName}`,
+                                                range: range,
+                                                documentation: {
+                                                    value: `Column: ${columnName}\nType: ${column.data_type}\nTable: ${tableName}`,
+                                                },
+                                            });
+                                        }
+
+                                        // Only add individual column names that match what's being typed
+                                        if (
+                                            columnNameLower.startsWith(
+                                                currentWord
+                                            )
+                                        ) {
+                                            suggestions.push({
+                                                label: columnName,
+                                                kind: monaco.languages
+                                                    .CompletionItemKind.Field,
+                                                insertText: columnName,
+                                                detail: `Column (${column.data_type})`,
+                                                sortText: `C${columnName}`,
+                                                range: range,
+                                                documentation: {
+                                                    value: `Column: ${columnName}\nType: ${column.data_type}\nTable: ${tableName}`,
+                                                },
+                                            });
+                                        }
                                     });
-                                });
+                                }
+                            });
+
+                            // Add SQL keywords LAST - lowest priority
+                            sqlKeywords.forEach((keyword) => {
+                                const keywordLower = keyword.toLowerCase();
+
+                                // Only show keywords if they start with what's being typed
+                                if (keywordLower.startsWith(currentWord)) {
+                                    suggestions.push({
+                                        label: keyword,
+                                        kind: monaco.languages
+                                            .CompletionItemKind.Keyword,
+                                        insertText: keyword,
+                                        detail: "SQL Keyword",
+                                        sortText: `D${keyword}`,
+                                        range: range,
+                                    });
+                                }
                             });
 
                             return { suggestions };
@@ -229,6 +285,8 @@ export function MonacoWrapper({
                 }}
                 options={{
                     padding: { top: 24, bottom: 24 },
+                    acceptSuggestionOnEnter: "off",
+                    tabCompletion: "on",
                     readOnly,
                     minimap: { enabled: false },
                     scrollBeyondLastLine: false,
@@ -243,6 +301,7 @@ export function MonacoWrapper({
                     wordWrap: "on",
                     suggestOnTriggerCharacters: true,
                     quickSuggestions: true,
+                    quickSuggestionsDelay: 0,
                     parameterHints: {
                         enabled: true,
                     },
@@ -263,24 +322,6 @@ export function MonacoWrapper({
                     detectIndentation: false,
                     trimAutoWhitespace: true,
                     largeFileOptimizations: true,
-                    suggest: {
-                        insertMode: "replace",
-                        showKeywords: true,
-                        showSnippets: true,
-                        showClasses: true,
-                        showFunctions: true,
-                        showVariables: true,
-                        showConstants: true,
-                        showFields: true,
-                        showColors: true,
-                        showFiles: true,
-                        showReferences: true,
-                        showFolders: true,
-                        showTypeParameters: true,
-                        showWords: true,
-                        showUsers: true,
-                        showIssues: true,
-                    },
                 }}
             />
         </Suspense>

@@ -107,22 +107,23 @@ export const ConfigDialog: React.FC = () => {
                         <Label htmlFor="tenant" className="text-right">
                             Tenant
                         </Label>
-                        <div className="col-span-3">
-                            <Input
-                                id="tenant"
-                                value={localConfig.tenant}
-                                onChange={(e) =>
-                                    handleInputChange("tenant", e.target.value)
-                                }
-                                onKeyDown={handleKeyDown}
-                                placeholder="yourcompany"
-                                className="w-full"
-                            />
-                            <div className="text-xs text-muted-foreground mt-1">
-                                Use if you're using the hosted version of
-                                HaloPSA. This will autofill Resource Server to
-                                be: https://tenant.halopsa.com
-                            </div>
+                        <Input
+                            id="tenant"
+                            value={localConfig.tenant}
+                            onChange={(e) =>
+                                handleInputChange("tenant", e.target.value)
+                            }
+                            onKeyDown={handleKeyDown}
+                            placeholder="yourcompany"
+                            className="col-span-3"
+                        />
+                    </div>
+                    <div className="grid grid-cols-4 gap-4">
+                        <div></div>
+                        <div className="col-span-3 text-xs text-muted-foreground">
+                            Use if you're using the hosted version of HaloPSA.
+                            This will autofill Resource Server to be:
+                            https://tenant.halopsa.com
                         </div>
                     </div>
 
