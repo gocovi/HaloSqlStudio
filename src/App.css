@@ -1,39 +1,16 @@
-#root {
-    /* Removed problematic styles that were causing layout issues */
+/* AG Grid Custom Styling */
+.ag-theme-quartz {
+    --ag-background-color: hsl(var(--background));
+    --ag-foreground-color: hsl(var(--foreground));
+    --ag-header-background-color: hsl(var(--card));
+    --ag-header-foreground-color: hsl(var(--foreground));
+    --ag-border-color: hsl(var(--border));
+    --ag-row-hover-color: hsl(var(--accent) / 0.1);
+    --ag-selected-row-background-color: hsl(var(--primary) / 0.2);
 }
 
-.logo {
-    height: 6em;
-    padding: 1.5em;
-    will-change: filter;
-    transition: filter 300ms;
-}
-.logo:hover {
-    filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-    filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-    a:nth-of-type(2) .logo {
-        animation: logo-spin infinite 20s linear;
-    }
-}
-
-.card {
-    padding: 2em;
-}
-
-.read-the-docs {
-    color: #888;
+/* Custom header styling */
+.ag-header-cell-custom {
+    font-weight: 600 !important;
+    font-size: 12px !important;
 }

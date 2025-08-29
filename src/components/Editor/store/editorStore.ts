@@ -15,6 +15,8 @@ export interface Tab {
     queryResult?: QueryResult | null;
     isExecuting?: boolean;
     queryError?: string | null;
+    // Search state
+    globalFilter?: string;
 }
 
 // Import the QueryResult type
@@ -52,6 +54,10 @@ interface EditorState {
         executeQueryFn: (sql: string) => Promise<QueryResult>
     ) => Promise<void>;
     clearQueryResult: (tabId: string) => void;
+
+    // Search actions
+    setGlobalFilter: (tabId: string, filter: string) => void;
+    clearGlobalFilter: (tabId: string) => void;
 
     // Utility
     getActiveTab: () => Tab | undefined;
@@ -253,6 +259,23 @@ export const useEditorStore = create<EditorState>()(
                 }));
             },
 
+            // Search actions
+            setGlobalFilter: (tabId, filter) => {
+                set((state) => ({
+                    tabs: state.tabs.map((t) =>
+                        t.id === tabId ? { ...t, globalFilter: filter } : t
+                    ),
+                }));
+            },
+
+            clearGlobalFilter: (tabId) => {
+                set((state) => ({
+                    tabs: state.tabs.map((t) =>
+                        t.id === tabId ? { ...t, globalFilter: "" } : t
+                    ),
+                }));
+            },
+
             // Utility
             getActiveTab: () => {
                 const state = get();
@@ -267,7 +290,12 @@ export const useEditorStore = create<EditorState>()(
         {
             name: "editor-storage",
             partialize: (state) => ({
-                tabs: state.tabs,
+                tabs: state.tabs.map((tab) => ({
+                    ...tab,
+                    queryResult: undefined, // Don't persist query results
+                    isExecuting: false, // Don't persist execution state
+                    queryError: null, // Don't persist errors
+                })),
                 activeTabId: state.activeTabId,
             }),
         }

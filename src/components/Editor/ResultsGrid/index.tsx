@@ -1,7 +1,7 @@
-import { useState, useRef } from "react";
 import { ResultsHeader } from "./ResultsHeader";
 import { ResultsTable } from "./ResultsTable";
-import type { QueryResult } from "@/lib/halo-api";
+import { useEditorStore } from "../store/editorStore";
+import type { QueryResult } from "@/services/api/types";
 
 interface ResultsGridProps {
     result: QueryResult | null;
@@ -10,9 +10,14 @@ interface ResultsGridProps {
 }
 
 export function ResultsGrid({ result, loading, error }: ResultsGridProps) {
-    const [searchTerm, setSearchTerm] = useState("");
-    const [currentView, setCurrentView] = useState<"table" | "json">("table");
-    const tableRef = useRef<HTMLDivElement>(null);
+    const { activeTabId, setGlobalFilter, clearGlobalFilter } =
+        useEditorStore();
+
+    // Get the current tab's global filter from the store
+    const currentTab = useEditorStore((state) =>
+        state.tabs.find((tab) => tab.id === activeTabId)
+    );
+    const globalFilter = currentTab?.globalFilter || "";
 
     if (loading) {
         return (
@@ -42,21 +47,18 @@ export function ResultsGrid({ result, loading, error }: ResultsGridProps) {
     }
 
     return (
-        <div className="grid grid-rows-[auto_1fr_auto] h-full gap-0">
+        <div className="grid grid-rows-[auto_1fr_auto] h-full gap-0 min-h-0">
             <ResultsHeader
                 result={result}
-                searchTerm={searchTerm}
-                onSearchTermChange={setSearchTerm}
-                currentView={currentView}
-                onViewChange={setCurrentView}
+                globalFilter={globalFilter}
+                onGlobalFilterChange={(filter) =>
+                    setGlobalFilter(activeTabId, filter)
+                }
             />
 
-            <ResultsTable
-                ref={tableRef}
-                result={result}
-                searchTerm={searchTerm}
-                currentView={currentView}
-            />
+            <div className="min-h-0 overflow-hidden">
+                <ResultsTable result={result} />
+            </div>
 
             {/* Footer with row count and query time */}
             <div className="flex items-center justify-between px-3 py-2 text-xs text-muted-foreground border-t border-border bg-muted/30">

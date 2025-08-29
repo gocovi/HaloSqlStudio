@@ -1,371 +1,165 @@
-import { forwardRef, useMemo, memo } from "react";
+import React, { useMemo, useRef, useEffect } from "react";
+import { AgGridReact } from "ag-grid-react";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Copy, Check } from "lucide-react";
-import { cn } from "@/lib/utils";
+    ColDef,
+    GridOptions,
+    ModuleRegistry,
+    AllCommunityModule,
+    GridApi,
+} from "ag-grid-community";
+import { themeQuartz } from "ag-grid-community";
 import type { QueryResult } from "@/services/api/types";
-import { useResultsSorting } from "./hooks/useResultsSorting";
-import { useColumnResize } from "./hooks/useColumnResize";
-import { useResultsCopy } from "./hooks/useResultsCopy";
-import { useResultsSearch } from "./hooks/useResultsSearch";
+import { useEditorStore } from "../store/editorStore";
 
-interface ResultsTableProps {
-    result: QueryResult;
-    searchTerm: string;
-    currentView: "table" | "json";
+// Register AG Grid modules
+ModuleRegistry.registerModules([AllCommunityModule]);
+
+// AG Grid theme configuration
+const myTheme = themeQuartz.withParams({
+    accentColor: "#3C83F6",
+    backgroundColor: "#14161A",
+    borderRadius: 0,
+    browserColorScheme: "dark",
+    chromeBackgroundColor: {
+        ref: "foregroundColor",
+        mix: 0.07,
+        onto: "backgroundColor",
+    },
+    fontFamily: {
+        googleFont: "IBM Plex Sans",
+    },
+    foregroundColor: "#FFF",
+    headerBackgroundColor: "#191B1F",
+    headerFontSize: 14,
+    wrapperBorderRadius: 0,
+
+    // Additional theme parameters for better appearance
+    borderColor: "#2A2D31",
+});
+
+interface AgDataTableProps {
+    result: QueryResult | null;
 }
 
-export const ResultsTable = forwardRef<HTMLDivElement, ResultsTableProps>(
-    ({ result, searchTerm, currentView }, ref) => {
-        const { sortConfig, handleSort, sortedRows } =
-            useResultsSorting(result);
-        const { columnWidths, isResizing, handleResizeStart } =
-            useColumnResize(result);
-        const { copiedRowIndex, copiedCell, handleCopyRow, handleCopyCell } =
-            useResultsCopy();
-        const { searchResults, currentSearchIndex } = useResultsSearch(
-            result,
-            searchTerm
-        );
+export const ResultsTable: React.FC<AgDataTableProps> = ({ result }) => {
+    const gridRef = useRef<AgGridReact>(null);
+    const { activeTabId } = useEditorStore();
 
-        // Get the rows to display (sorted if sorting is active)
-        const displayRows = useMemo(() => {
-            if (!result?.rows) return [];
+    // Get the current tab's global filter from the store
+    const currentTab = useEditorStore((state) =>
+        state.tabs.find((tab) => tab.id === activeTabId)
+    );
+    const globalFilter = currentTab?.globalFilter || "";
 
-            let rows = sortConfig ? sortedRows : result.rows;
+    // Transform data for AG Grid
+    const rowData = useMemo(() => {
+        if (!result?.rows) return [];
 
-            // Apply search filtering if search results are available
-            if (searchResults.length > 0) {
-                // Create a Set of row indices that match the search for O(1) lookup
-                const matchingRowIndices = new Set(
-                    searchResults.map((result) => result.rowIndex)
-                );
+        return result.rows.map((row, index) => ({
+            id: index,
+            ...row,
+        }));
+    }, [result]);
 
-                // Filter rows based on the pre-computed search results
-                rows = rows.filter((_, index) => {
-                    const originalIndex = result.rows.indexOf(rows[index]);
-                    return matchingRowIndices.has(originalIndex);
-                });
-            }
+    // Generate column definitions dynamically
+    const columnDefs = useMemo((): ColDef[] => {
+        if (!result?.columns) return [];
 
-            return rows;
-        }, [result?.rows, sortConfig, sortedRows, searchResults]);
+        return result.columns.map((col) => ({
+            field: col.name,
+            headerName: col.name,
+            sortable: true,
+            filter: true,
+            filterParams: {
+                filterOptions: ["contains", "equals", "startsWith", "endsWith"],
+                defaultOption: "contains",
+            },
+            resizable: true,
+            minWidth: 120,
+            maxWidth: 300,
+            cellStyle: {
+                fontSize: "12px",
+                padding: "6px 8px",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+            },
+            headerClass: "ag-header-cell-custom",
+        }));
+    }, [result]);
 
-        if (currentView === "json") {
-            return (
-                <div className="h-full p-4">
-                    <div className="h-full overflow-auto">
-                        <pre className="text-xs font-mono text-foreground whitespace-pre-wrap break-words bg-muted/30 p-4 rounded-md border">
-                            {JSON.stringify(result.rows, null, 2)}
-                        </pre>
-                    </div>
-                </div>
-            );
-        }
+    // Grid options
+    const gridOptions: GridOptions = {
+        // Data
+        rowData,
+        columnDefs,
 
-        return (
+        // Styling
+        rowHeight: 32,
+        headerHeight: 40,
+
+        // Features
+        enableCellTextSelection: true,
+        suppressCellFocus: true,
+
+        // Global Search
+        quickFilterText: globalFilter,
+
+        // Pagination
+        pagination: true,
+        paginationPageSize: 50,
+        paginationPageSizeSelector: [25, 50, 100, 200],
+
+        // Performance
+        rowBuffer: 20,
+        suppressAnimationFrame: false,
+
+        // Enable Google Fonts loading for the theme
+        loadThemeGoogleFonts: true,
+
+        // Default column properties
+        defaultColDef: {
+            sortable: true,
+            filter: true,
+            resizable: true,
+            minWidth: 120,
+            maxWidth: 300,
+        },
+    };
+
+    return (
+        <div className="w-full h-full">
             <div
-                className="overflow-auto scrollbar-thin bg-background border border-border rounded-md relative"
-                ref={ref}
-                style={{ cursor: isResizing ? "col-resize" : "default" }}
+                className="h-full w-full"
+                style={{
+                    height: "100%",
+                    minHeight: "400px",
+                }}
             >
-                <div className="w-full min-w-max relative h-full">
-                    <Table className="w-full">
-                        <TableHeader className="sticky top-0 bg-card border-b border-border z-50 shadow-sm">
-                            <TableRow>
-                                {result.columns.map((column, index) => (
-                                    <TableHead
-                                        key={index}
-                                        style={{
-                                            width:
-                                                columnWidths[column.name] ||
-                                                150,
-                                            minWidth: 50,
-                                            maxWidth: 500,
-                                        }}
-                                        className={cn(
-                                            "text-xs font-medium border-r border-border last:border-r-0 relative bg-card",
-                                            index === 0 &&
-                                                "sticky left-0 bg-card z-40 shadow-sm border-r-2 border-r-primary/20"
-                                        )}
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <button
-                                                onClick={() =>
-                                                    handleSort(column.name)
-                                                }
-                                                className="flex items-center gap-1 hover:bg-accent/50 px-2 py-1 rounded transition-colors cursor-pointer flex-1 text-left"
-                                                title={`Click to sort by ${column.name}`}
-                                            >
-                                                <span className="truncate">
-                                                    {column.name}
-                                                </span>
-                                                {sortConfig?.key ===
-                                                    column.name && (
-                                                    <div className="flex flex-col text-muted-foreground">
-                                                        {sortConfig.direction ===
-                                                        "asc" ? (
-                                                            <span className="text-primary">
-                                                                ↑
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-primary">
-                                                                ↓
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </button>
-                                            {index <
-                                                result.columns.length - 1 && (
-                                                <div
-                                                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20"
-                                                    onMouseDown={(e) =>
-                                                        handleResizeStart(
-                                                            e,
-                                                            column.name
-                                                        )
-                                                    }
-                                                />
-                                            )}
-                                        </div>
-                                    </TableHead>
-                                ))}
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {(() => {
-                                if (
-                                    searchTerm.trim() &&
-                                    displayRows.length === 0
-                                ) {
-                                    return (
-                                        <TableRow>
-                                            <TableCell
-                                                colSpan={result.columns.length}
-                                                className="text-center py-8 text-muted-foreground"
-                                            >
-                                                No results found for "
-                                                {searchTerm}"
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                }
-
-                                return displayRows.map((row, rowIndex) => {
-                                    // Find the original index in the unsorted rows for proper highlighting
-                                    const originalRowIndex =
-                                        result.rows.indexOf(row);
-                                    return (
-                                        <MemoizedTableRow
-                                            key={originalRowIndex}
-                                            row={row}
-                                            rowIndex={originalRowIndex}
-                                            columns={result.columns}
-                                            searchResults={searchResults}
-                                            currentSearchIndex={
-                                                currentSearchIndex
-                                            }
-                                            columnWidths={columnWidths}
-                                            sortConfig={sortConfig}
-                                            onSort={handleSort}
-                                            onResizeStart={handleResizeStart}
-                                            onCopyRow={handleCopyRow}
-                                            onCopyCell={handleCopyCell}
-                                            copiedRowIndex={copiedRowIndex}
-                                            copiedCell={copiedCell}
-                                        />
-                                    );
-                                });
-                            })()}
-                        </TableBody>
-                    </Table>
-
-                    {/* Copy buttons positioned absolutely over table rows */}
-                    {(() => {
-                        if (!result?.rows || !result?.columns) return null;
-
-                        return displayRows.map((row, rowIndex) => {
-                            const originalRowIndex = result.rows.indexOf(row);
-                            return (
-                                <div
-                                    key={`copy-${originalRowIndex}`}
-                                    className="absolute opacity-0 hover:opacity-100 transition-opacity pointer-events-none"
-                                    style={{
-                                        top: `${
-                                            (originalRowIndex + 1) * 32 + 40
-                                        }px`,
-                                        right: "8px",
-                                    }}
-                                >
-                                    <div className="pointer-events-auto">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() =>
-                                                handleCopyRow(
-                                                    row,
-                                                    result.columns
-                                                )
-                                            }
-                                            className="h-6 w-6 p-0 bg-background/80 backdrop-blur-sm"
-                                            title="Copy row to clipboard"
-                                        >
-                                            {copiedRowIndex === rowIndex ? (
-                                                <Check className="h-3 w-3 text-green-600" />
-                                            ) : (
-                                                <Copy className="h-3 w-3" />
-                                            )}
-                                        </Button>
-                                    </div>
-                                </div>
-                            );
-                        });
-                    })()}
-                </div>
+                <AgGridReact
+                    ref={gridRef}
+                    {...gridOptions}
+                    // Apply theme directly to the component
+                    theme={myTheme}
+                    // Suppress warnings about invalid properties
+                    onGridReady={(params) => {
+                        // Suppress console warnings about invalid grid options
+                        const originalWarn = console.warn;
+                        console.warn = (...args) => {
+                            if (
+                                args[0] &&
+                                typeof args[0] === "string" &&
+                                args[0].includes(
+                                    "AG Grid: invalid gridOptions property"
+                                )
+                            ) {
+                                return; // Suppress AG Grid property warnings
+                            }
+                            originalWarn.apply(console, args);
+                        };
+                    }}
+                />
             </div>
-        );
-    }
-);
-
-ResultsTable.displayName = "ResultsTable";
-
-// Memoized table row component to prevent unnecessary re-renders
-const MemoizedTableRow = memo(
-    ({
-        row,
-        rowIndex,
-        columns,
-        searchResults,
-        currentSearchIndex,
-        columnWidths,
-        sortConfig,
-        onSort,
-        onResizeStart,
-        onCopyRow,
-        onCopyCell,
-        copiedRowIndex,
-        copiedCell,
-    }: {
-        row: Record<string, string>;
-        rowIndex: number;
-        columns: { name: string }[];
-        searchResults: Array<{
-            rowIndex: number;
-            colIndex: number;
-            value: string;
-        }>;
-        currentSearchIndex: number;
-        columnWidths: Record<string, number>;
-        sortConfig: { key: string; direction: "asc" | "desc" } | null;
-        onSort: (columnName: string) => void;
-        onResizeStart: (e: React.MouseEvent, columnName: string) => void;
-        onCopyRow: (
-            row: Record<string, string>,
-            columns: { name: string }[]
-        ) => void;
-        onCopyCell: (value: string, rowIndex: number, colIndex: number) => void;
-        copiedRowIndex: number | null;
-        copiedCell: { rowIndex: number; colIndex: number } | null;
-    }) => {
-        return (
-            <TableRow className="hover:bg-accent/50 group relative">
-                {columns.map((column, cellIndex) => {
-                    const cellValue = String(row[column.name] || "");
-                    const isSearchMatch = searchResults.some(
-                        (result) =>
-                            result.rowIndex === rowIndex &&
-                            result.colIndex === cellIndex
-                    );
-
-                    const isCurrentResult = searchResults.some(
-                        (result, index) =>
-                            result.rowIndex === rowIndex &&
-                            result.colIndex === cellIndex &&
-                            index === currentSearchIndex
-                    );
-
-                    const isCopied =
-                        copiedCell?.rowIndex === rowIndex &&
-                        copiedCell?.colIndex === cellIndex;
-
-                    return (
-                        <TableCell
-                            key={cellIndex}
-                            style={{
-                                width: columnWidths[column.name] || 150,
-                                minWidth: 50,
-                                maxWidth: 500,
-                            }}
-                            className={cn(
-                                "text-xs border-r border-border last:border-r-0 font-mono whitespace-nowrap overflow-hidden relative group/cell",
-                                // First column sticky styling (but don't override search highlights)
-                                cellIndex === 0 &&
-                                    "sticky left-0 z-40 shadow-sm border-r-2 border-r-primary/20",
-                                // Search highlighting - takes precedence over background
-                                searchResults.length > 0 &&
-                                    isSearchMatch &&
-                                    "bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100",
-                                searchResults.length > 0 &&
-                                    isCurrentResult &&
-                                    "bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100 ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-background font-semibold",
-                                // Background for first column when not highlighted
-                                cellIndex === 0 &&
-                                    !isSearchMatch &&
-                                    !isCurrentResult &&
-                                    "bg-background"
-                            )}
-                        >
-                            <div
-                                className="truncate relative"
-                                title={cellValue}
-                            >
-                                {row[column.name] === null ||
-                                row[column.name] === undefined ? (
-                                    <span className="text-muted-foreground italic">
-                                        NULL
-                                    </span>
-                                ) : (
-                                    cellValue
-                                )}
-
-                                {/* Copy icon overlay */}
-                                <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/cell:opacity-100 transition-opacity">
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onCopyCell(
-                                                cellValue,
-                                                rowIndex,
-                                                cellIndex
-                                            );
-                                        }}
-                                        className="h-6 w-6 p-0 bg-background/90 hover:bg-background border shadow-sm"
-                                        title="Copy to clipboard"
-                                    >
-                                        {isCopied ? (
-                                            <Check className="h-3 w-3 text-green-600" />
-                                        ) : (
-                                            <Copy className="h-3 w-3" />
-                                        )}
-                                    </Button>
-                                </div>
-                            </div>
-                        </TableCell>
-                    );
-                })}
-            </TableRow>
-        );
-    }
-);
-
-MemoizedTableRow.displayName = "MemoizedTableRow";
+        </div>
+    );
+};

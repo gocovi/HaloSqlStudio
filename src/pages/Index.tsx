@@ -1,7 +1,14 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import {
+    useState,
+    useCallback,
+    useEffect,
+    useRef,
+    useMemo,
+    lazy,
+    Suspense,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { Explorer } from "@/components/Explorer";
-import { Editor } from "@/components/Editor";
 import { useAuth } from "@/contexts/AuthContext";
 import { useConfig } from "@/hooks/useConfig";
 import { useTables } from "@/hooks/useTables";
@@ -17,14 +24,27 @@ import {
 } from "@/hooks/useTabPersistence";
 import { useEditorStore } from "@/components/Editor/store/editorStore";
 
+// Lazy load the Editor component to reduce initial bundle size
+const Editor = lazy(() =>
+    import("@/components/Editor").then((module) => ({ default: module.Editor }))
+);
+
 const Index = () => {
     const { isAuthenticated, logout } = useAuth();
     const { config } = useConfig();
-    const { tables, isLoading: isLoadingTables, refreshTables } = useTables();
+    const {
+        tables,
+        isLoading: isLoadingTables,
+        isLoaded: isTablesLoaded,
+        refreshTables,
+        loadTables,
+    } = useTables();
     const {
         reports,
         isLoading: isLoadingReports,
+        isLoaded: isReportsLoaded,
         refreshReports,
+        loadReports,
     } = useReports();
     const { executeQuery, updateReport } = useApi();
     const navigate = useNavigate();
@@ -125,6 +145,17 @@ const Index = () => {
         await Promise.all([refreshTables(), refreshReports()]);
     }, [refreshTables, refreshReports]);
 
+    const handleTabChange = useCallback(
+        (tab: "tables" | "reports") => {
+            if (tab === "tables" && !isTablesLoaded) {
+                loadTables();
+            } else if (tab === "reports" && !isReportsLoaded) {
+                loadReports();
+            }
+        },
+        [isTablesLoaded, isReportsLoaded, loadTables, loadReports]
+    );
+
     // Authentication is now handled by ProtectedRoute component
 
     return (
@@ -167,6 +198,13 @@ const Index = () => {
                     onReportSelect={handleReportSelect}
                     onRefresh={handleRefresh}
                     isLoading={isLoadingTables || isLoadingReports}
+                    loadTables={loadTables}
+                    loadReports={loadReports}
+                    isTablesLoaded={isTablesLoaded}
+                    isReportsLoaded={isReportsLoaded}
+                    onTabChange={handleTabChange}
+                    isLoadingTables={isLoadingTables}
+                    isLoadingReports={isLoadingReports}
                 />
             </div>
 
@@ -184,7 +222,20 @@ const Index = () => {
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col min-w-0 mt-12">
-                <Editor />
+                <Suspense
+                    fallback={
+                        <div className="flex items-center justify-center h-full">
+                            <div className="text-center">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                                <p className="text-muted-foreground">
+                                    Loading SQL Editor...
+                                </p>
+                            </div>
+                        </div>
+                    }
+                >
+                    <Editor />
+                </Suspense>
             </div>
         </div>
     );
