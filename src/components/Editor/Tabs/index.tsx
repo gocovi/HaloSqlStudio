@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,12 +19,14 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { Play, Plus, X, Save, Variable } from "lucide-react";
+import { Play, Plus, X, Save, Variable, Bell } from "lucide-react";
 import { useEditorStore } from "../store/editorStore";
 import { ReportTab } from "./ReportTab";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
 import { VariablesDialog } from "../VariablesDialog";
+import { WarningsDropdown } from "../WarningsDropdown";
+import { warningRegistry, type WarningResult } from "@/lib/warnings";
 
 export function Tabs() {
     const {
@@ -49,6 +51,8 @@ export function Tabs() {
     const [editingTitle, setEditingTitle] = useState("");
     const [showSaveConfirm, setShowSaveConfirm] = useState(false);
     const [showVariablesDialog, setShowVariablesDialog] = useState(false);
+    const [showWarningsPanel, setShowWarningsPanel] = useState(false);
+    const [warnings, setWarnings] = useState<WarningResult[]>([]);
 
     const handleDoubleClick = (tab: {
         id: string;
@@ -87,6 +91,14 @@ export function Tabs() {
     const handleNewTab = () => {
         addTab(`Query ${tabs.length + 1}`);
     };
+
+    // Test warning detection
+    useEffect(() => {
+        // Test with a simple SQL that should trigger warnings
+        const testSql = "SELECT * FROM profiles -- This is a comment";
+        const testWarnings = warningRegistry.scan(testSql);
+        console.log("Test warnings:", testWarnings);
+    }, []);
 
     const handleExecute = async () => {
         if (activeTabId) {
@@ -142,6 +154,46 @@ export function Tabs() {
     const activeTab = tabs.find((t) => t.id === activeTabId);
     const canSave = activeTab?.isReport && activeTab?.hasUnsavedChanges;
 
+    // Scan for warnings when active tab changes or SQL changes
+    useEffect(() => {
+        if (activeTabId && activeTab) {
+            const newWarnings = warningRegistry.scan(activeTab.sql);
+            setWarnings(newWarnings);
+        }
+    }, [activeTabId, activeTab?.sql]);
+
+    // Close warnings dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (showWarningsPanel && event.target) {
+                const target = event.target as Element;
+                if (!target.closest(".warnings-dropdown-container")) {
+                    setShowWarningsPanel(false);
+                }
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () =>
+            document.removeEventListener("mousedown", handleClickOutside);
+    }, [showWarningsPanel]);
+
+    const handleFixWarning = (warningResult: WarningResult) => {
+        if (activeTabId && warningResult.warning.fix) {
+            const fixedSql = warningResult.warning.fix(activeTab.sql);
+            updateTab(activeTabId, { sql: fixedSql });
+
+            // Re-scan for warnings after fix
+            const newWarnings = warningRegistry.scan(fixedSql);
+            setWarnings(newWarnings);
+
+            toast({
+                title: "Warning Fixed",
+                description: "The SQL has been automatically fixed.",
+            });
+        }
+    };
+
     return (
         <div className="flex flex-col h-full">
             {/* Tab Bar */}
@@ -150,7 +202,7 @@ export function Tabs() {
                 <div className="flex items-center border-r border-border">
                     <button
                         onClick={handleExecute}
-                        className="flex items-center justify-center h-8 w-8 rounded hover:bg-accent/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="flex items-center justify-center h-10 w-10 rounded hover:bg-accent/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         title="Execute query (Ctrl+Enter)"
                     >
                         <Play className="h-5 w-5 text-green-500" />
@@ -161,7 +213,7 @@ export function Tabs() {
                 <div className="flex items-center border-r border-border">
                     <button
                         onClick={() => setShowVariablesDialog(true)}
-                        className="flex items-center justify-center h-8 w-8 rounded hover:bg-accent/50 transition-colors relative"
+                        className="flex items-center justify-center h-10 w-10 rounded hover:bg-accent/50 transition-colors relative"
                         title={`Edit Halo variables${
                             variables.$agentid ||
                             variables.$siteid ||
@@ -182,14 +234,50 @@ export function Tabs() {
                                 : "\n\nNo variables set - will use logged-in user values"
                         }`}
                     >
-                        <Variable className="h-4 w-4 text-blue-500" />
+                        <Variable className="h-5 w-5 text-blue-500" />
                         {/* Show indicator when any variables are set */}
                         {(variables.$agentid ||
                             variables.$siteid ||
                             variables.$clientid) && (
-                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-background"></div>
+                            <div className="absolute top-1 right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-background z-10"></div>
                         )}
                     </button>
+                </div>
+
+                {/* Warnings button */}
+                <div className="flex items-center border-r border-border relative warnings-dropdown-container">
+                    <button
+                        onClick={() => setShowWarningsPanel(!showWarningsPanel)}
+                        className="flex items-center justify-center h-10 w-10 rounded hover:bg-accent/50 transition-colors relative"
+                        title={`Code Warnings${
+                            warnings.length > 0
+                                ? `\n\n${warnings.length} warning${
+                                      warnings.length === 1 ? "" : "s"
+                                  } found`
+                                : "\n\nNo warnings found"
+                        }`}
+                    >
+                        <Bell className="h-5 w-5 text-orange-500" />
+                        {/* Show indicator when warnings exist */}
+                        {warnings.length > 0 && (
+                            <div className="absolute top-1 right-1 w-4 h-4 bg-orange-500 rounded-full border-2 border-background flex items-center justify-center z-10">
+                                <span className="text-xs text-white font-bold leading-none">
+                                    {warnings.length > 9
+                                        ? "9+"
+                                        : warnings.length}
+                                </span>
+                            </div>
+                        )}
+                    </button>
+
+                    {/* Warnings Dropdown */}
+                    {showWarningsPanel && (
+                        <WarningsDropdown
+                            warnings={warnings}
+                            onFixWarning={handleFixWarning}
+                            onClose={() => setShowWarningsPanel(false)}
+                        />
+                    )}
                 </div>
 
                 {/* Save button - only for report tabs with changes */}
@@ -198,7 +286,7 @@ export function Tabs() {
                         <button
                             onClick={handleSaveClick}
                             disabled={!canSave}
-                            className="flex items-center justify-center h-8 w-8 rounded hover:bg-accent/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="flex items-center justify-center h-10 w-10 rounded hover:bg-accent/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             title={
                                 !canSave
                                     ? "No changes to save"
@@ -304,10 +392,10 @@ export function Tabs() {
                 <div className="flex items-center border-l border-border">
                     <button
                         onClick={handleNewTab}
-                        className="flex items-center justify-center h-8 w-8 rounded hover:bg-accent/50 transition-colors"
+                        className="flex items-center justify-center h-10 w-10 rounded hover:bg-accent/50 transition-colors"
                         title="New Query Tab"
                     >
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-5 w-5" />
                     </button>
                 </div>
             </div>
