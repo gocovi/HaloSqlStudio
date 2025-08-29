@@ -37,9 +37,7 @@ const Login: React.FC = () => {
                     <div className="mx-auto mb-4 p-3 bg-primary/10 rounded-full w-16 h-16 flex items-center justify-center">
                         <Database className="h-8 w-8 text-primary" />
                     </div>
-                    <CardTitle className="text-2xl">
-                        Halo SQL Explorer
-                    </CardTitle>
+                    <CardTitle className="text-2xl">Halo SQL Studio</CardTitle>
                     <CardDescription>
                         Connect to your Halo PSA instance and explore data with
                         SQL queries

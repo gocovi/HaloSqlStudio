@@ -163,7 +163,7 @@ const Index = () => {
             {/* Header */}
             <div className="absolute top-0 left-0 right-0 h-12 bg-background border-b flex items-center justify-between px-4 z-10">
                 <div className="flex items-center gap-2">
-                    <h1 className="text-lg font-semibold">Halo SQL Explorer</h1>
+                    <h1 className="text-lg font-semibold">Halo SQL Studio</h1>
                     <span className="text-sm text-muted-foreground">
                         •{" "}
                         {config.resourceServer

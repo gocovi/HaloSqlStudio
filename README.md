@@ -1,142 +1,71 @@
-# Halo SQL Explorer
+# Halo SQL Studio
 
-A local-first SQL query tool for Halo PSA that connects via OAuth and allows you to explore your data with SQL queries.
+## 🚀 Overview
 
-## Features
+Halo SQL Studio is a client-side SQL editor that connects to Halo PSA via their reporting API. It gives you the familiar experience of tools like DataGrip and SSMS without needing direct database access.
 
--   🔐 **Secure OAuth Authentication** - Connect to your Halo instance securely
--   🗄️ **Database Explorer** - Browse tables and columns with search functionality
--   📝 **SQL Query Editor** - Write and execute SQL queries with syntax highlighting
--   📊 **Results Grid** - View query results in a clean, sortable table format
--   🔍 **Global Search** - Use Ctrl+F to quickly find tables and columns
--   💾 **Local Storage** - Refresh tokens are stored locally for persistent sessions
--   ⚙️ **Configurable** - Set your own authorization server, resource server, and tenant
+## ✨ Features
 
-## Setup Instructions
+-   🔐 **OAuth Authentication** - Connect directly to your Halo instance
+-   🗄️ **Database Explorer** - Browse tables, columns, and existing reports
+-   📝 **SQL Query Editor** - Write and execute queries with syntax highlighting
+-   📊 **Results Grid** - View results in a clean, sortable table format
+-   🚫 **No Backend Required** - Everything runs in your browser
 
-### 1. Create OAuth Application in Halo
+## 🛠️ Setup
 
-1. Log into your Halo PSA instance
-2. Go to **Config > Integrations > Halo API**
-3. Note your **Authentication Server URL** (e.g., `https://mymsp.halopsa.com/auth`)
-4. Create a new OAuth application with:
-    - **Redirect URI**: `http://localhost:5173/auth/callback` (for development)
-    - **Scopes**: `read:reporting edit:reporting offline_access`
+### 1. Create Halo Application
+
+1. Go to **Config > Integrations > Halo API** in your Halo instance
+2. Note your **Resource Server** and **Authorization Server**
+3. Click **View Applications** → **New**
+4. Configure:
+    - **Name**: Halo SQL Studio
+    - **Auth Method**: Authorization Code (Native Application)
+    - **Redirect URI**: `https://halosqlstudio.gocovi.dev/auth/callback`
+    - **Permissions**: `read:reporting edit:reporting`
     - **Grant Types**: Authorization Code
+    - **CORS Whitelist**: `https://halosqlstudio.gocovi.dev`
 
-### 2. Configure the Application
+### 2. Configure App
 
-1. Start the application
-2. Click **Configure** to open the settings dialog
-3. Enter your Halo configuration:
-    - **Auth Server**: Your authentication server URL (e.g., `https://mymsp.halopsa.com/auth`)
-    - **Resource Server**: Your base server URL (e.g., `https://mymsp.halopsa.com`)
-    - **Client ID**: The OAuth client ID from step 1
-    - **Redirect URI**: Automatically set to your current URL + `/auth/callback`
+1. Start Halo SQL Studio
+2. Click **Configure** and enter:
+    - **Tenant**: Your subdomain (e.g., `mymsp` for `mymsp.halopsa.com`)
+    - **Auth Server**: Your Authorization Server URL
+    - **Resource Server**: Your Resource Server URL
+    - **Client ID**: From your Halo application details
 
-### 3. Connect and Use
+### 3. Connect
 
-1. Click **Connect to Halo** to start the OAuth flow
-2. You'll be redirected to Halo to authorize the application
-3. After authorization, you'll be redirected back and can start exploring
+1. Click **Connect to Halo**
+2. Authorize in Halo
+3. Start exploring!
 
-## Development
+## 🏠 Self-Hosting
 
-```bash
-# Install dependencies
-npm install
+Want to host Halo SQL Studio yourself? It's easy!
 
-# Start development server
-npm run dev
+### Quick Deploy
 
-# Build for production
-npm run build
-```
+1. **Fork this repository** on GitHub
+2. **Deploy to your preferred platform:**
+    - **Vercel**: Connect your fork and deploy with one click
+    - **Netlify**: Connect your fork and deploy automatically
+    - **GitHub Pages**: Enable in your fork's settings
+    - **Any static host**: Build with `npm run build` and upload the `dist` folder
 
-## Architecture
+### Configuration
 
--   **OAuth Flow**: Uses PKCE (Proof Key for Code Exchange) for secure authentication
--   **Token Management**: Automatically handles access token refresh
--   **API Integration**: Connects to Halo's Report API for SQL execution
--   **Local Storage**: Securely stores refresh tokens in localStorage
+When self-hosting, update your Halo application's **Redirect URI** and **CORS Whitelist** to match your domain:
 
-## Security Features
+-   Redirect URI: `https://yourdomain.com/auth/callback`
+-   CORS Whitelist: `https://yourdomain.com`
 
--   PKCE implementation for OAuth 2.0 security
--   Automatic token refresh with 5-minute buffer
--   Secure storage of authentication tokens in localStorage
--   Persistent sessions - tokens are automatically refreshed and reused
--   No sensitive data logged or transmitted unnecessarily
+## 🔒 Security
 
-## Usage
+All API calls happen directly from your browser. No data passes through external servers.
 
-### Browsing Tables
+## 📄 License
 
--   Tables are automatically loaded when you connect
--   Click on a table to expand and see its columns
--   Use the search bar to find specific tables or columns
--   Press Ctrl+F to quickly focus the search
-
-### Running Queries
-
--   Use the Console tab for ad-hoc queries
--   Create new query tabs for complex queries
--   Results are displayed in a sortable grid
--   Execution time is shown for performance monitoring
-
-### Example Queries
-
-```sql
--- Get recent tickets
-SELECT
-    t.faultid AS [Id],
-    aareadesc AS [Company],
-    USERS.uusername AS [User],
-    t.symptom AS [Subject],
-    rtdesc AS [Type],
-    t.category2 AS [ServiceCategory]
-FROM
-    faults t
-    JOIN tstatus ON tstatus = status
-    JOIN requesttype ON rtid = requesttypenew
-    JOIN AREA ON aarea = Areaint
-    JOIN USERS ON Uid = t.userid
-WHERE
-    fdeleted = 0
-    AND Aarea <> 1
-    AND aarea <> 12
-    AND (rtdesc = 'Incident' OR rtdesc = 'Service Request')
-    AND dateoccured >= DATEADD(MONTH, -2, GETDATE())
-    AND fhasbeenclosed = 1
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **"No access token available"**
-
-    - Check your OAuth configuration
-    - Ensure your client ID is correct
-    - Verify redirect URI matches exactly
-
-2. **"Authentication failed"**
-
-    - Check your authorization server URL
-    - Verify tenant ID is correct
-    - Ensure OAuth app is properly configured in Halo
-
-3. **"API request failed"**
-    - Check your resource server URL
-    - Verify your OAuth app has the correct scopes
-    - Check Halo API permissions
-
-### Getting Help
-
--   Check the browser console for detailed error messages
--   Verify your Halo OAuth application configuration
--   Ensure all URLs are correct and accessible
-
-## License
-
-This project is open source and available under the MIT License.
+MIT License - Open source and free to use.
