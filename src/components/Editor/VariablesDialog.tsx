@@ -55,6 +55,8 @@ export function VariablesDialog({
             $agentid: "",
             $siteid: "",
             $clientid: "",
+            "@startdate": "",
+            "@enddate": "",
         };
         setLocalVariables(defaultVariables);
         onVariablesChange(defaultVariables);
@@ -69,19 +71,24 @@ export function VariablesDialog({
                         Halo Variables
                     </DialogTitle>
                     <DialogDescription>
-                        Set values for Halo variables that will be replaced in
-                        your SQL queries before execution. Leave empty to use
-                        the logged-in user's values. Variables are replaced
-                        globally in your SQL before sending to the API.
+                        Override variables for testing purposes. When in
+                        production or left blank, live variables will be used.
+                        See{" "}
+                        <a
+                            href="https://support.haloservicedesk.com/portal/kb?text=%24clientid&entity=articles&id=1449"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Halo's documentation
+                        </a>{" "}
+                        for more information.
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="agentid" className="text-right">
-                            $agentid
-                        </Label>
-                        <div className="col-span-3 relative">
+                <div className="grid gap-6 py-4">
+                    <div className="grid gap-2">
+                        <Label htmlFor="agentid">$agentid</Label>
+                        <div className="relative">
                             <Input
                                 id="agentid"
                                 value={localVariables.$agentid || ""}
@@ -104,11 +111,9 @@ export function VariablesDialog({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="siteid" className="text-right">
-                            $siteid
-                        </Label>
-                        <div className="col-span-3 relative">
+                    <div className="grid gap-2">
+                        <Label htmlFor="siteid">$siteid</Label>
+                        <div className="relative">
                             <Input
                                 id="siteid"
                                 value={localVariables.$siteid || ""}
@@ -131,11 +136,9 @@ export function VariablesDialog({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="clientid" className="text-right">
-                            $clientid
-                        </Label>
-                        <div className="col-span-3 relative">
+                    <div className="grid gap-2">
+                        <Label htmlFor="clientid">$clientid</Label>
+                        <div className="relative">
                             <Input
                                 id="clientid"
                                 value={localVariables.$clientid || ""}
@@ -157,26 +160,56 @@ export function VariablesDialog({
                             )}
                         </div>
                     </div>
-                </div>
 
-                {/* Help text */}
-                <div className="text-xs text-muted-foreground bg-muted/20 p-3 rounded-md">
-                    <p>
-                        <strong>How it works:</strong>
-                    </p>
-                    <p>
-                        • When you execute a query, any variables you set here
-                        will replace the corresponding $agentid, $siteid, or
-                        $clientid in your SQL
-                    </p>
-                    <p>
-                        • If you leave a variable empty, it will use the
-                        logged-in user's value from the API
-                    </p>
-                    <p>
-                        • This allows you to test the same SQL script with
-                        different parameters
-                    </p>
+                    <div className="grid gap-2">
+                        <Label htmlFor="startdate">@startdate</Label>
+                        <div className="relative">
+                            <Input
+                                id="startdate"
+                                type="date"
+                                value={localVariables["@startdate"] || ""}
+                                onChange={(e) =>
+                                    handleVariableChange(
+                                        "@startdate",
+                                        e.target.value
+                                    )
+                                }
+                                className={
+                                    localVariables["@startdate"]
+                                        ? "border-green-500"
+                                        : ""
+                                }
+                            />
+                            {localVariables["@startdate"] && (
+                                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-green-500 rounded-full"></div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="enddate">@enddate</Label>
+                        <div className="relative">
+                            <Input
+                                id="enddate"
+                                type="date"
+                                value={localVariables["@enddate"] || ""}
+                                onChange={(e) =>
+                                    handleVariableChange(
+                                        "@enddate",
+                                        e.target.value
+                                    )
+                                }
+                                className={
+                                    localVariables["@enddate"]
+                                        ? "border-green-500"
+                                        : ""
+                                }
+                            />
+                            {localVariables["@enddate"] && (
+                                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-green-500 rounded-full"></div>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
                 <DialogFooter className="flex justify-between">

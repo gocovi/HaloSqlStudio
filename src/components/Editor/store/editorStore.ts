@@ -90,6 +90,8 @@ export const useEditorStore = create<EditorState>()(
                 $agentid: "",
                 $siteid: "",
                 $clientid: "",
+                "@startdate": "",
+                "@enddate": "",
             },
 
             // Actions
@@ -234,7 +236,10 @@ export const useEditorStore = create<EditorState>()(
                 try {
                     // Replace Halo variables in SQL before execution
                     const state = get();
-                    const processedSql = replaceHaloVariables(tab.sql, state.variables);
+                    const processedSql = replaceHaloVariables(
+                        tab.sql,
+                        state.variables
+                    );
 
                     const result = await executeQueryFn(processedSql);
                     set((state) => ({

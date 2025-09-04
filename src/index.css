@@ -61,6 +61,10 @@
     body {
         @apply bg-background text-foreground;
     }
+
+    a {
+        @apply text-blue-600 hover:text-blue-800 underline;
+    }
 }
 
 @layer utilities {
@@ -132,5 +136,50 @@
     /* Hover effects */
     .ag-theme-quartz .ag-row:hover {
         background-color: rgba(60, 131, 246, 0.1) !important;
+    }
+
+    /* Native Date Input Styling for Dark Theme */
+    input[type="date"] {
+        color-scheme: dark;
+        color: hsl(var(--foreground));
+    }
+
+    /* Webkit-specific date input styling */
+    input[type="date"]::-webkit-calendar-picker-indicator {
+        background-color: transparent;
+        color: hsl(var(--primary));
+        cursor: pointer;
+        filter: invert(0.8) sepia(1) saturate(2) hue-rotate(200deg);
+        padding: 4px;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+    }
+
+    input[type="date"]::-webkit-calendar-picker-indicator:hover {
+        background-color: hsl(var(--accent));
+        filter: invert(0.9) sepia(1) saturate(2) hue-rotate(200deg);
+    }
+
+    /* Date text styling */
+    input[type="date"]::-webkit-datetime-edit {
+        color: hsl(var(--foreground));
+        padding: 0;
+    }
+
+    input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+        color: hsl(var(--foreground));
+    }
+
+    /* Individual date segments */
+    input[type="date"]::-webkit-datetime-edit-month-field,
+    input[type="date"]::-webkit-datetime-edit-day-field,
+    input[type="date"]::-webkit-datetime-edit-year-field {
+        color: hsl(var(--foreground));
+        font-weight: 400;
+    }
+
+    /* Focus state for date inputs */
+    input[type="date"]:focus::-webkit-datetime-edit {
+        color: hsl(var(--foreground));
     }
 }
